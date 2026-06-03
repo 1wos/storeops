@@ -1,0 +1,14 @@
+{
+  "name": "offduty-e2e",
+  "private": true,
+  "description": "Playwright e2e for the Off-Duty web UIs (Owner Ops Console + Customer Counter)",
+  "scripts": {
+    "test": "playwright test",
+    "test:fast": "playwright test --grep-invert @llm",
+    "test:llm": "playwright test --grep @llm",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

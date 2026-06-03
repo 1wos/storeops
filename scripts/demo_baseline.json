@@ -1,0 +1,23 @@
+{
+  "store_id": "store_001",
+  "inventory": [
+    {
+      "on_hand": 8,
+      "reserved": 0,
+      "threshold": 5,
+      "name": "Brownie"
+    },
+    {
+      "on_hand": 12,
+      "reserved": 0,
+      "threshold": 6,
+      "name": "Cold Brew"
+    },
+    {
+      "on_hand": 10,
+      "reserved": 0,
+      "threshold": 5,
+      "name": "Oat Milk Latte"
+    }
+  ]
+}

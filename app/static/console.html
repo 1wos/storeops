@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Off-Duty · Ops Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --canvas:#0A0F0E; --s1:#141A19; --s2:#1E2625; --line:rgba(180,190,185,.12); --line2:rgba(180,190,185,.20);
+    --green:#00ED64; --amber:#E0A23D; --ink:#F2F5F3; --mut:#9DAAA6; --sub:#66726E;
+    --read:#5AA9E6; --write:#00ED64; --recommend:#E0A23D; --vision:#B388F0; --err:#F0664F;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--ink);font-family:Inter,system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
+  .eyebrow{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--sub)}
+  header{display:flex;align-items:center;gap:12px;padding:16px 28px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(10,15,14,.85);backdrop-filter:blur(8px);z-index:5}
+  header .logo{font-weight:700;font-size:16px;letter-spacing:-.02em}
+  header .dot{width:7px;height:7px;border-radius:9999px;background:var(--green);box-shadow:0 0 8px var(--green)}
+  header .tag{font-size:11px;color:var(--mut);border:1px solid var(--line2);border-radius:9999px;padding:3px 10px}
+  header .right{margin-left:auto;color:var(--sub);font-size:12px}
+  main{max-width:1120px;margin:0 auto;padding:22px 28px 60px}
+
+  .digest{background:linear-gradient(180deg,var(--s1),var(--canvas));border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:18px;display:flex;align-items:center;gap:24px;flex-wrap:wrap;animation:rise .5s ease}
+  .digest .h{font-size:15px;font-weight:600}
+  .digest .h small{color:var(--mut);font-weight:400}
+  .digest .stat{display:flex;flex-direction:column}
+  .digest .stat b{font-size:20px;font-weight:700} .digest .stat span{font-size:11px;color:var(--mut)}
+  .digest .needs b{color:var(--amber)}
+  .digest .impact{margin-left:auto;padding-left:20px;border-left:1px solid var(--line)}
+  .digest .impact b{color:var(--green)}
+
+  .ask{display:flex;gap:8px;margin:0 0 18px}
+  .ask input{flex:1;background:var(--s1);border:1px solid var(--line2);border-radius:8px;color:var(--ink);padding:11px 14px;font-size:14px;font-family:inherit}
+  .ask input:focus{outline:none;border-color:var(--green)}
+  .ask button{background:var(--green);color:#03130A;border:0;border-radius:8px;padding:0 18px;font-weight:600;cursor:pointer}
+  .askout{background:var(--s1);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:18px;display:none}
+  .askout .who{font-size:11px;color:var(--green);font-weight:600;margin-bottom:4px}
+
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+  .card{background:var(--s1);border:1px solid var(--line);border-radius:12px;padding:16px;transition:.15s}
+  .card:hover{border-color:var(--line2);transform:translateY(-1px)}
+  .card .k{color:var(--mut);font-size:12px;margin-bottom:8px}
+  .card .v{font-size:26px;font-weight:700;letter-spacing:-.02em}
+  .card .v small{font-size:13px;color:var(--mut);font-weight:500}
+
+  .grid2{display:grid;grid-template-columns:1fr 1.25fr;gap:14px}
+  .box{background:var(--s1);border:1px solid var(--line);border-radius:12px;padding:18px}
+  .box h2{font-size:12px;color:var(--mut);margin:0 0 14px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between;align-items:baseline}
+  .box h2 .n{color:var(--amber)}
+  .box h2 .hint{color:var(--sub);font-weight:400;text-transform:none;letter-spacing:0}
+
+  .appr{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--s2);display:flex;align-items:center;gap:10px;animation:rise .35s ease}
+  .appr .ic{width:8px;height:8px;border-radius:9999px}
+  .appr .t{flex:1} .appr .t b{font-weight:600} .appr .t span{color:var(--mut);font-size:12px}
+  .appr-act{display:flex;gap:6px}
+  .appr-act button{border-radius:8px;padding:6px 12px;font-weight:600;cursor:pointer;font-size:12px;font-family:inherit;background:transparent;transition:.12s}
+  .bn-app{border:1px solid var(--green);color:var(--green)} .bn-app:active{background:var(--green);color:#03130A}
+  .bn-rej{border:1px solid var(--line2);color:var(--mut)} .bn-rej:hover{border-color:var(--amber);color:var(--amber)}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);background:var(--s2);border:1px solid var(--line2);
+    border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:14px;font-size:13px;color:var(--ink);
+    box-shadow:0 8px 28px rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:.25s;z-index:50}
+  .toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+  .toast button{background:transparent;border:0;color:var(--green);font-weight:700;cursor:pointer;font-size:13px;font-family:inherit}
+  .empty{color:var(--sub);font-size:13px;padding:8px 0}
+  .box.needs{border-color:rgba(224,162,61,.35);background:linear-gradient(180deg,rgba(224,162,61,.05),var(--s1))}
+  .box.needs h2{color:var(--amber)}
+  .vision{display:flex;flex-direction:column;gap:10px}
+  .vision input[type=file]{color:var(--mut);font-size:12px}
+  .vision button{align-self:flex-start;background:transparent;border:1px solid var(--vision);color:var(--vision);border-radius:8px;padding:7px 14px;font-weight:600;cursor:pointer;font-size:13px}
+  .vout-item{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .mdb{background:var(--s1);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-bottom:18px}
+  .mdb summary{cursor:pointer;font-size:12px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.06em;list-style:none}
+  .mdb summary::before{content:'▸ ';color:var(--green)} .mdb[open] summary::before{content:'▾ '}
+  .mdb pre{background:var(--canvas);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:11px;color:var(--mut);overflow:auto;font-family:ui-monospace,Menlo,monospace;margin:10px 0 6px}
+  .mdb .row{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);padding:3px 0;border-bottom:1px dashed var(--line)}
+  .mdb .plan{color:var(--green);font-size:12px;font-weight:600}
+  .mdb .lbl2{font-size:11px;color:var(--sub);margin-top:12px}
+  .mcp-btn{margin-top:12px;background:transparent;border:1px solid var(--green);color:var(--green);border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s}
+  .mcp-btn:hover{background:rgba(0,237,100,.10)} .mcp-btn:disabled{opacity:.5;cursor:default}
+  .sp-mcp{display:inline-block;width:11px;height:11px;border-radius:50%;border:2px solid var(--green);border-top-color:transparent;animation:spin .7s linear infinite;vertical-align:-1px;margin-right:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .trace{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;cursor:pointer;background:var(--s2);transition:.15s}
+  .trace:hover{border-color:var(--green);transform:translateY(-1px)}
+  .trace .tt{font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .pill{font-size:10px;padding:2px 8px;border-radius:9999px;font-weight:600;white-space:nowrap}
+  .pill.success{background:rgba(0,237,100,.14);color:var(--green)} .pill.error{background:rgba(240,102,79,.16);color:var(--err)}
+  .steps{display:flex;gap:6px;flex-wrap:wrap}
+  .stp{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--mut);background:var(--canvas);border:1px solid var(--line);border-radius:9999px;padding:3px 9px;opacity:0;animation:pop .3s ease forwards}
+  .stp i{width:7px;height:7px;border-radius:9999px;display:inline-block}
+
+  .drawer{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;justify-content:flex-end;z-index:10}
+  .drawer.open{display:flex}
+  .drawer .pane{width:min(560px,94vw);background:var(--s1);border-left:1px solid var(--line2);padding:24px;overflow:auto}
+  .drawer h3{margin:0 0 4px;font-size:16px} .drawer .sub{color:var(--mut);font-size:12px;margin-bottom:18px;word-break:break-all}
+  .drawer .x{float:right;cursor:pointer;color:var(--mut);font-size:22px;line-height:1}
+  .estep{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+  .estep .at{font-size:10px;padding:2px 7px;border-radius:6px;height:fit-content;white-space:nowrap;font-weight:600}
+  .estep .sm{color:var(--mut);font-size:12px}
+  .ev .coll{color:var(--green);font-size:12px;font-weight:600;margin:16px 0 6px;text-transform:uppercase;letter-spacing:.04em}
+  .ev pre{background:var(--canvas);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:11px;overflow:auto;color:var(--mut);margin:0 0 8px;font-family:ui-monospace,Menlo,monospace}
+
+  /* waiting/thinking animation (ported pattern from careflow AgentActivityFeed) */
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes shimmer{0%{transform:translateX(-120%)}100%{transform:translateX(320%)}}
+  .think{display:flex;flex-direction:column;gap:10px}
+  .think .row{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--mut)}
+  .think .sp{width:14px;height:14px;border-radius:50%;border:2px solid var(--green);border-top-color:transparent;animation:spin .7s linear infinite;flex-shrink:0}
+  .think .bar{height:4px;border-radius:9999px;background:var(--s2);overflow:hidden;position:relative}
+  .think .bar::after{content:'';position:absolute;inset:0;width:38%;border-radius:9999px;background:linear-gradient(90deg,transparent,var(--green),transparent);animation:shimmer 1.15s linear infinite}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes pop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
+  @media(max-width:820px){.cards{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <span class="dot"></span><span class="logo">Off-Duty</span>
+  <span class="tag">Ops Console</span>
+  <span class="right" id="meta">—</span>
+</header>
+<main>
+  <div class="eyebrow" style="margin-bottom:8px">While you were off-duty</div>
+  <div class="digest" id="digest"></div>
+
+  <div class="box needs" style="margin-bottom:18px">
+    <h2>⚠ Needs you <span class="n" id="apprN"></span></h2>
+    <div id="approvals"><div class="empty">Loading…</div></div>
+  </div>
+
+  <div class="ask">
+    <input id="askIn" placeholder="Ask the owner assistant — e.g. How's the store today?  /  What did the agent do?" />
+    <button onclick="ask()">Ask</button>
+  </div>
+  <div class="askout" id="askOut"></div>
+
+  <div class="cards" id="cards"></div>
+
+  <details class="mdb">
+    <summary>MongoDB engine · how these numbers are computed</summary>
+    <div id="mdbBody" class="empty">Loading…</div>
+  </details>
+
+  <details class="mdb" id="mcpBox">
+    <summary>MongoDB MCP · run a live tool call</summary>
+    <div class="lbl2">Calls MongoDB through the official <b>MCP server</b> (read-only). Each tool call is written to the Evidence trail.</div>
+    <button class="mcp-btn" onclick="runMcpProof()">Run live MCP call ▶</button>
+    <div id="mcpOut" class="empty" style="margin-top:10px">Idle — click to call <code>list-collections</code> / <code>count</code> through MongoDB MCP.</div>
+  </details>
+
+  <div class="grid2">
+    <div class="box">
+      <h2>Store-State <span class="hint">· upload a shelf photo (optional)</span></h2>
+      <div class="vision">
+        <input type="file" id="vphoto" accept="image/*" />
+        <button onclick="analyzePhoto()">Analyze photo</button>
+        <div id="vout" class="empty">No photo analyzed yet. Upload a shelf/counter photo and Gemini reads the stock.</div>
+      </div>
+    </div>
+    <div class="box">
+      <h2>Agent Activity <span class="hint">· click a trace for MongoDB evidence</span></h2>
+      <div id="timeline"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+</main>
+
+<div class="drawer" id="drawer"><div class="pane" id="pane"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+// HTML escape — API 텍스트를 innerHTML에 넣기 전 안전하게(XSS 방지). Escape before innerHTML.
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const won=n=>"$"+(n||0).toLocaleString(undefined,{maximumFractionDigits:2});
+const AC={read:'var(--read)',write:'var(--write)',recommend:'var(--recommend)'};
+const toolColor=t=>{ if(t&&(t.includes('vision')||t.includes('shelf')))return 'var(--vision)'; return null; };
+function actionColor(s){ return toolColor(s.tool_name) || AC[s.action_type] || 'var(--mut)'; }
+
+function countUp(el,to,fmt){ const dur=600,t0=performance.now();
+  function f(t){ const p=Math.min(1,(t-t0)/dur); el.textContent=fmt(Math.round(to*(0.5-Math.cos(Math.PI*p)/2))); if(p<1)requestAnimationFrame(f);} requestAnimationFrame(f); }
+
+async function load(){
+  const m=await (await fetch('/health')).json(); $('#meta').textContent='store '+m.store_id+' · '+m.model;
+  const [d,imp]=await Promise.all([
+    fetch('/api/digest').then(r=>r.json()),
+    fetch('/api/impact').then(r=>r.json()).catch(()=>({})),
+  ]);
+  $('#digest').innerHTML=`<div class="h">Today's operations <small>· while you were off-duty</small></div>
+    <div class="stat"><b>${d.orders}</b><span>Orders</span></div>
+    <div class="stat"><b>${won(d.revenue)}</b><span>Revenue</span></div>
+    <div class="stat"><b>${d.low_stock}</b><span>Low stock</span></div>
+    <div class="stat"><b>${d.agent_actions}</b><span>Agent actions</span></div>
+    <div class="stat needs"><b>${d.needs_you}</b><span>Needs you</span></div>`+
+    (imp&&imp.owner_minutes_saved_est!=null?`<div class="stat impact" title="${esc(imp.basis||'')}">
+      <b>~${imp.owner_minutes_saved_est} min</b><span>saved · ${imp.actions_automated} actions automated</span></div>`:'');
+
+  const s=await (await fetch('/api/summary')).json();
+  $('#cards').innerHTML=['Orders','Revenue','Low-stock items','Agent actions']
+    .map(k=>`<div class="card"><div class="k">${k}</div><div class="v">0</div></div>`).join('');
+  const cv=document.querySelectorAll('#cards .v');
+  countUp(cv[0],s.orders,x=>x); countUp(cv[1],s.revenue,x=>won(x));
+  countUp(cv[2],(s.low_stock||[]).length,x=>x); countUp(cv[3],s.agent_actions,x=>x);
+
+  renderApprovals(); renderTimeline(); renderMdb();
+}
+
+async function renderMdb(){
+  try{
+    const [ex,h]=await Promise.all([fetch('/api/explain').then(r=>r.json()),fetch('/api/db-health').then(r=>r.json())]);
+    $('#mdbBody').innerHTML=
+      `<div class="lbl2">Summary aggregation · collection: <b>${ex.collection}</b></div>`+
+      `<pre>${JSON.stringify(ex.pipeline,null,2)}</pre>`+
+      `<div class="plan">plan: ${ex.plan_stage||'—'}${ex.index_used?(' · index: '+ex.index_used):''}</div>`+
+      `<div class="lbl2">Collections · MongoDB operational memory</div>`+
+      (h.collections||[]).map(c=>`<div class="row"><span>${c.collection}</span><span>${(c.count||0).toLocaleString()} docs · ${c.indexes} idx</span></div>`).join('');
+  }catch(e){ $('#mdbBody').textContent='—'; }
+}
+
+// 실제 MongoDB MCP 서버로 라이브 호출 → tool_calls 가시화 + Evidence 링크.
+// Fire a live call through the MongoDB MCP server; show the tool_calls + link to Evidence.
+async function runMcpProof(){
+  const out=$('#mcpOut'), btn=document.querySelector('.mcp-btn');
+  btn.disabled=true;
+  out.innerHTML='<span class="sp-mcp"></span>Calling MongoDB through MCP… (cold start can take ~30s)';
+  try{
+    const r=await (await fetch('/api/mcp-proof',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:'List the collections in the database, then count the products.'})})).json();
+    if(r.error){ out.innerHTML='<span style="color:var(--amber)">'+esc(r.error)+'</span>'; return; }
+    const calls=(r.tool_calls||[]).map(t=>`<div class="row"><span class="plan">▸ ${esc(t.tool)}</span><span>${esc(JSON.stringify(t.args))}</span></div>`).join('')
+      || '<div class="lbl2">(no tool calls captured)</div>';
+    out.innerHTML=`<div class="plan">via ${esc(r.via||'MongoDB MCP server')}</div>${calls}`+
+      `<div class="lbl2">Answer</div><div style="font-size:13px;color:var(--ink)">${esc(r.answer||'')}</div>`+
+      (r.trace_id?`<div class="lbl2"><a href="#" onclick="evidence('${esc(r.trace_id)}');return false" style="color:var(--read)">See these MCP calls in Evidence →</a></div>`:'');
+  }catch(e){ out.innerHTML='<span style="color:var(--amber)">MCP call failed — retry in a moment.</span>'; }
+  finally{ btn.disabled=false; }
+}
+
+async function renderApprovals(){
+ try{
+  const a=await (await fetch('/api/approvals')).json();
+  $('#apprN').textContent=a.total?('· '+a.total+' pending'):'';
+  // onclick 에 DB 문자열을 인라인하지 않음(JS-string sink XSS 방지) — data-* + 위임 핸들러.
+  // Never inline DB strings into onclick (JS-string-sink XSS). Use data-* + a delegated handler.
+  const rowBtns=(kind,id,name)=>`<div class="appr-act"
+      data-kind="${esc(kind)}" data-id="${esc(id)}" data-name="${esc(name)}">
+      <button class="bn-rej" data-action="reject">Reject</button>
+      <button class="bn-app" data-action="approve">Approve</button></div>`;
+  const rows=[
+    ...a.restock.map(r=>`<div class="appr"><span class="ic" style="background:var(--write)"></span>
+      <div class="t"><b>${esc(r.name||'product')}</b> <span>restock needed</span></div>
+      ${rowBtns('restock', r.task_id, r.name||'product')}</div>`),
+    ...a.suggestions.map(s=>`<div class="appr"><span class="ic" style="background:var(--vision)"></span>
+      <div class="t"><b>${esc(s.name||'item')}</b> <span>photo → ${esc(s.signal)} (conf ${(s.confidence||0).toFixed(2)})</span></div>
+      ${rowBtns('suggestion', s.suggestion_id, s.name||'item')}</div>`)
+  ];
+  // 리스트가 화면을 잡아먹지 않게 상위 N개만 + 나머지 카운트(시니어 폴리시). Cap to top N.
+  const CAP=5, shown=rows.slice(0,CAP).join('');
+  const more=rows.length>CAP?`<div class="empty">+${rows.length-CAP} more pending · approve the top ones first</div>`:'';
+  $('#approvals').innerHTML=rows.length?(shown+more):'<div class="empty">No pending approvals ✓</div>';
+ }catch(e){ if(!$('#approvals').innerHTML.trim()) $('#approvals').innerHTML='<div class="empty">Approvals unavailable — retrying…</div>'; }
+}
+// 위임 핸들러: 버튼의 data-* 만 읽음(실제 값, eval 없음). Delegated handler reads data-* only.
+$('#approvals').addEventListener('click',e=>{
+  const btn=e.target.closest('button[data-action]'); if(!btn)return;
+  const box=btn.closest('.appr-act'); if(!box)return;
+  decide(btn.dataset.action, box.dataset.kind, box.dataset.id, box.dataset.name||'');
+});
+
+// 승인/거절 + 5초 Undo 토스트(되돌리면 pending 으로 reopen). Approve/Reject + 5s Undo toast.
+async function decide(action,kind,id,name){
+  await fetch('/api/'+action+'/'+kind+'/'+id,{method:'POST'});
+  renderApprovals(); renderTimeline(); load();
+  const verb = action==='approve' ? 'Approved' : 'Rejected';
+  toast(`${verb}: ${name}`, ()=>undo(kind,id));
+}
+async function undo(kind,id){ await fetch('/api/reopen/'+kind+'/'+id,{method:'POST'}); renderApprovals(); renderTimeline(); load(); }
+let _toastT;
+function toast(msg, onUndo){
+  const t=$('#toast'); clearTimeout(_toastT);
+  window.__undo=()=>{ onUndo&&onUndo(); t.classList.remove('show'); };
+  t.innerHTML=`<span>${esc(msg)}</span><button onclick="window.__undo()">Undo</button>`;
+  t.classList.add('show');
+  _toastT=setTimeout(()=>t.classList.remove('show'), 5000);
+}
+
+async function renderTimeline(){
+ try{
+  const tl=await (await fetch('/api/timeline?limit=12')).json();
+  $('#timeline').innerHTML=tl.length?tl.map(t=>{
+    const steps=t.steps.map((s,i)=>`<span class="stp" style="animation-delay:${i*60}ms">
+      <i style="background:${actionColor(s)}"></i>${esc(s.tool_name)}</span>`).join('');
+    return `<div class="trace" onclick="evidence('${esc(t.trace_id)}')">
+      <div class="tt"><span>${esc(t.title)}</span><span class="pill ${esc(t.outcome)}">${esc(t.outcome)}</span></div>
+      <div class="steps">${steps}</div></div>`;
+  }).join(''):'<div class="empty">No activity yet</div>';
+ }catch(e){ if(!$('#timeline').innerHTML.trim()) $('#timeline').innerHTML='<div class="empty">Activity unavailable — retrying…</div>'; }
+}
+
+async function evidence(id){
+  const d=await (await fetch('/api/evidence/'+encodeURIComponent(id))).json();
+  if(!d || d.error){ $('#pane').innerHTML='<span class="x" onclick="closeD()">×</span><div class="eyebrow">Evidence</div><p class="empty">No evidence for this trace.</p>'; $('#drawer').classList.add('open'); return; }
+  const steps=(d.steps||[]).map(s=>`<div class="estep">
+    <span class="at" style="color:${actionColor(s)};background:var(--canvas)">${esc(s.action_type)}</span>
+    <div><div style="font-weight:600;font-size:13px">${esc(s.tool_name)}</div><div class="sm">${esc(s.summary||'')}</div></div></div>`).join('');
+  const ev=Object.entries(d.evidence||{}).map(([c,docs])=>`<div class="coll">${esc(c)} · ${docs.length}</div>
+    ${docs.map(x=>`<pre>${x.doc?esc(JSON.stringify(x.doc,null,2)):'(ref '+esc(x.ref)+')'}</pre>`).join('')}`).join('');
+  $('#pane').innerHTML=`<span class="x" onclick="closeD()">×</span>
+    <div class="eyebrow">Evidence</div><h3>${d.step_count} steps · ${d.evidence_count} source docs</h3>
+    <div class="sub">${d.trace_id}</div>${steps}
+    <div class="ev"><div class="coll" style="color:var(--mut)">MongoDB evidence documents</div>${ev}</div>`;
+  $('#drawer').classList.add('open');
+}
+function closeD(){ $('#drawer').classList.remove('open'); }
+$('#drawer').addEventListener('click',e=>{ if(e.target.id==='drawer')closeD(); });
+
+const THINK_STEPS=['Routing to the right agent…','Reading inventory & owner rules…','Aggregating store data…','Composing the answer…'];
+async function ask(){
+  const q=$('#askIn').value.trim(); if(!q)return;
+  $('#askOut').style.display='block';
+  $('#askOut').innerHTML=`<div class="think"><div class="row"><span class="sp"></span><span id="thk">${THINK_STEPS[0]}</span></div><div class="bar"></div></div>`;
+  let si=0; const tk=setInterval(()=>{ si=(si+1)%THINK_STEPS.length; const l=document.getElementById('thk'); if(l)l.textContent=THINK_STEPS[si]; },900);
+  let r; try{ r=await (await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:q})})).json(); }
+  finally{ clearInterval(tk); }
+  $('#askOut').innerHTML=`<div class="who">→ ${esc((r.delegation_path||[]).join(' → '))}</div>
+    <div style="animation:rise .4s ease">${esc(r.answer||'').replace(/\n/g,'<br>')}</div>`;
+  renderTimeline(); load();
+}
+$('#askIn')&&$('#askIn').addEventListener('keydown',e=>{ if(e.key==='Enter')ask(); });
+
+async function analyzePhoto(){
+  const f=$('#vphoto').files[0]; if(!f){ $('#vout').textContent='Pick a photo first.'; return; }
+  $('#vout').innerHTML='<div class="think"><span class="sp"></span><span>Gemini is reading the shelf…</span></div>';
+  const fd=new FormData(); fd.append('photo',f);
+  try{
+    const r=await (await fetch('/api/vision/analyze',{method:'POST',body:fd})).json();
+    $('#vout').innerHTML=`<div style="color:var(--mut);font-size:12px;margin-bottom:6px">${esc(r.caption||'')}</div>`+
+      (r.detected||[]).map(d=>`<div class="vout-item"><span>${esc(d.label)} → <b>${esc(d.product_name||'—')}</b></span><span style="color:var(--mut)">${esc(d.stock_signal)}</span></div>`).join('')+
+      `<div style="margin-top:8px;color:var(--vision);font-size:12px">${esc(String(r.suggestions_created||0))} suggestion(s) sent to “Needs you” ↑</div>`;
+    renderApprovals(); renderTimeline(); load();
+  }catch(e){ $('#vout').textContent='Analysis failed. Try again.'; }
+}
+
+load();
+// in-flight 가드: 이전 폴링이 안 끝났으면 이번 틱 건너뜀(중첩 요청/깜빡임 방지). Skip a tick if the previous poll is still running.
+let _polling=false;
+setInterval(async()=>{ if(_polling)return; _polling=true;
+  try{ await Promise.all([renderApprovals(), renderTimeline()]); } finally{ _polling=false; }
+}, 5000);  // live feel
+</script>
+</body>
+</html>

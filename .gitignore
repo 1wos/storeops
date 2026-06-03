@@ -1,0 +1,16 @@
+# secrets & local
+.env
+*.env.local
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+# reference clones (not part of the product)
+_sources/
+_refs/
+# node / playwright
+node_modules/
+package-lock.json
+test-results/
+playwright-report/
+.cache/

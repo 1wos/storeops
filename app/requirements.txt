@@ -1,0 +1,9 @@
+# Integrated Off-Duty agent — pinned loosely; exact versions resolved by pip.
+google-adk>=2.1
+mcp>=1.0
+pymongo>=4.9
+pydantic-settings>=2.5
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-dotenv>=1.0
+python-multipart>=0.0.9

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Off-Duty · Counter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --canvas:#0A0F0E;--s1:#141A19;--s2:#1E2625;--line:rgba(180,190,185,.12);--line2:rgba(180,190,185,.20);
+    --green:#00ED64;--amber:#E0A23D;--ink:#F2F5F3;--mut:#9DAAA6;--sub:#66726E;--vision:#B388F0;--read:#5AA9E6;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--ink);font-family:Inter,system-ui,sans-serif;font-size:15px;-webkit-font-smoothing:antialiased}
+  header{display:flex;align-items:center;gap:12px;padding:16px 24px;border-bottom:1px solid var(--line)}
+  header .logo{font-weight:700;font-size:16px;letter-spacing:-.02em}
+  header .dot{width:7px;height:7px;border-radius:9999px;background:var(--green);box-shadow:0 0 8px var(--green)}
+  header .tag{font-size:11px;color:var(--mut);border:1px solid var(--line2);border-radius:9999px;padding:3px 10px}
+  header .right{margin-left:auto;font-size:12px;color:var(--sub);cursor:pointer}
+  .wrap{max-width:640px;margin:0 auto;padding:18px 20px;display:flex;flex-direction:column;height:calc(100vh - 58px)}
+  /* 넓은 화면(노트북 투사)에선 휑한 풀-하이트 대신 의도된 '카운터 단말' 프레임으로 / on wide screens, frame it as an intentional kiosk device, not an empty full-height page */
+  @media (min-width:900px){
+    body{display:flex;align-items:center;justify-content:center;min-height:100vh;padding-top:58px}
+    header{position:fixed;top:0;left:0;right:0;background:var(--canvas);z-index:10}
+    .wrap{height:78vh;max-height:760px;border:1px solid var(--line);border-radius:18px;
+      background:linear-gradient(180deg,rgba(20,26,25,.5),transparent);box-shadow:0 16px 50px rgba(0,0,0,.4)}
+  }
+  .chat{flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:8px 2px}
+  .b{max-width:80%;padding:11px 14px;border-radius:14px;line-height:1.5;animation:rise .3s ease;white-space:pre-wrap}
+  .b.bot{background:var(--s1);border:1px solid var(--line);border-bottom-left-radius:4px;align-self:flex-start}
+  .b.user{background:var(--green);color:#03130A;font-weight:500;border-bottom-right-radius:4px;align-self:flex-end}
+  .path{align-self:flex-start;font-size:11px;color:var(--sub);margin:-4px 0 0 4px}
+  .path b{color:var(--read);font-weight:600}
+  .think{align-self:flex-start;display:flex;align-items:center;gap:10px;color:var(--mut);font-size:13px;background:var(--s1);border:1px solid var(--line);padding:10px 14px;border-radius:14px;border-bottom-left-radius:4px}
+  .think .sp{width:13px;height:13px;border-radius:50%;border:2px solid var(--green);border-top-color:transparent;animation:spin .7s linear infinite}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .chip{background:var(--s1);border:1px solid var(--line2);color:var(--mut);border-radius:9999px;padding:7px 13px;font-size:13px;cursor:pointer;transition:.15s}
+  .chip:hover{border-color:var(--green);color:var(--ink)}
+  .avail{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 2px 12px;border-bottom:1px solid var(--line);margin-bottom:10px;max-height:84px;overflow:auto}
+  .avail .lbl{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-right:2px}
+  .av-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);background:var(--s1);border:1px solid var(--line);border-radius:9999px;padding:4px 10px;animation:rise .3s ease}
+  .av-chip i{width:7px;height:7px;border-radius:9999px}
+  .composer{display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--line)}
+  .composer input{flex:1;background:var(--s1);border:1px solid var(--line2);border-radius:10px;color:var(--ink);padding:13px 15px;font-size:16px;font-family:inherit}
+  .composer input:focus{outline:none;border-color:var(--green)}
+  .composer button{background:var(--green);color:#03130A;border:0;border-radius:10px;padding:0 20px;font-weight:600;cursor:pointer}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<header>
+  <span class="dot"></span><span class="logo">Off-Duty</span><span class="tag">Counter</span>
+  <span class="right" onclick="reset()">New customer ↺</span>
+</header>
+<div class="wrap">
+  <div class="avail" id="avail"></div>
+  <div class="chat" id="chat"></div>
+  <div class="chips" id="chips">
+    <span class="chip" onclick="quick(this.textContent)">What's available?</span>
+    <span class="chip" onclick="quick(this.textContent)">Recommend something sweet</span>
+    <span class="chip" onclick="quick(this.textContent)">A cold brew and a brownie, please</span>
+    <span class="chip" onclick="quick(this.textContent)">What goes well with a cold brew?</span>
+  </div>
+  <div class="composer">
+    <input id="in" placeholder="Talk to the counter…" autocomplete="off" />
+    <button onclick="send()">Send</button>
+  </div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const chat=$('#chat'); let busy=false;
+function scroll(){ chat.scrollTo(0,chat.scrollHeight); }
+function bubble(role,text){ const d=document.createElement('div'); d.className='b '+role; d.textContent=text; chat.appendChild(d); scroll(); return d; }
+function greet(){ chat.innerHTML=''; bubble('bot',"Hi! Welcome to Off-Duty. What can I get you today?"); }
+
+async function send(text){
+  const t=(text??$('#in').value).trim(); if(!t||busy)return;
+  busy=true; $('#in').value=''; bubble('user',t);
+  const th=document.createElement('div'); th.className='think';
+  th.innerHTML='<span class="sp"></span><span>checking inventory & rules…</span>'; chat.appendChild(th); scroll();
+  // 멈춘 응답에 영원히 갇히지 않게 클라이언트 타임아웃(AbortController). Client timeout so a hung call can't freeze the UI.
+  const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(), 65000);
+  let r;
+  try{
+    r=await (await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:t}), signal:ctl.signal})).json();
+  }catch(e){
+    r={answer: e.name==='AbortError' ? "That took too long — please try again." : "Sorry, I had trouble there. Try again?", delegation_path:[]};
+  }finally{
+    clearTimeout(to); th.remove(); busy=false;   // busy 는 무조건 해제 / always release the lock
+  }
+  bubble('bot', r.answer||'…');
+  if((r.delegation_path||[]).length){ const p=document.createElement('div'); p.className='path';
+    p.innerHTML='handled by <b>'+r.delegation_path.map(esc).join('</b> → <b>')+'</b>'; chat.appendChild(p); scroll(); }
+  renderAvail();  // 주문으로 재고 변했을 수 있으니 갱신 / refresh stock after each turn
+}
+function quick(t){ send(t); }
+function reset(){ busy=false; greet(); renderAvail(); }  // 새 고객 = 잠금도 초기화 / new customer also clears the lock
+
+// 실시간 가용 재고 — "메뉴가 아니라 실재고를 안다" hook. Live availability — the hook.
+async function renderAvail(){
+  try{
+    const d=await (await fetch('/api/availability')).json();
+    $('#avail').innerHTML='<span class="lbl">Available now</span>'+
+      (d.items||[]).map(i=>`<span class="av-chip"><i style="background:${i.low?'var(--amber)':'var(--green)'}"></i>${esc(i.name)}${i.low?' · low':''}</span>`).join('');
+  }catch(e){ $('#avail').innerHTML='<span class="lbl" style="color:var(--amber)">Availability unavailable</span>'; }
+}
+$('#in').addEventListener('keydown',e=>{ if(e.key==='Enter')send(); });
+greet(); renderAvail();
+</script>
+</body>
+</html>
