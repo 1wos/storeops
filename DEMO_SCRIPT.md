@@ -24,6 +24,19 @@ curl -s -X POST localhost:8080/api/mcp-proof >/dev/null
 - **Do NOT show a terminal/editor** on screen — `.env` holds live credentials (rotate beforehand).
 - Have a **shelf photo** ready for the vision beat.
 
+## New in this build (make sure these land on camera)
+
+- **Streaming agent trace** — typing in **Ask Off-Duty** (top of Console) streams the *real*
+  delegation path live (`Routing → Reading sales & store data ✓ → …`), not a fake spinner.
+- **Grounding receipt** — under each answer: `⛁ Grounded in MongoDB · N tool calls · see
+  evidence →` (clicks straight into the Evidence drawer = anti-hallucination proof).
+- **Review-to-Action** — the "Reviews" tab / **Run live demo** button.
+- **Sticky section tabs** (Overview / Reviews / Activity / MongoDB) + **light/dark toggle** —
+  quick touches that read as "product, not prototype."
+
+> Fastest zero-typing open: click the green **▶ Run live demo** hero — it scrolls to Reviews
+> and runs the whole Review-to-Action pipeline in one click.
+
 ## Script (≈3:00)
 
 **0:00 — The hook (Console).** "This is Off-Duty — an AI store manager for offline shops.
