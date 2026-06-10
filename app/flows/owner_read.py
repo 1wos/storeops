@@ -108,8 +108,11 @@ def pending_approvals(db: Database, store_id: str = STORE_ID) -> dict:
     sugg = [{"suggestion_id": str(s["_id"]), "name": s.get("product_name"),
              "signal": s.get("suggested_signal"), "confidence": s.get("confidence"),
              "method": s.get("match_method")} for s in suggestions]
-    return {"restock": restock, "suggestions": sugg,
-            "total": len(restock) + len(sugg)}
+    # 리뷰발 운영 액션도 같은 인박스로 / review-derived actions land in the same inbox
+    from .review_to_action import pending_review_actions
+    reviews = pending_review_actions(db, store_id)
+    return {"restock": restock, "suggestions": sugg, "reviews": reviews,
+            "total": len(restock) + len(sugg) + len(reviews)}
 
 
 def approve_restock(db: Database, task_id: str, by: str = "owner") -> dict:
@@ -252,6 +255,11 @@ def reopen_approval(db: Database, kind: str, item_id: str, by: str = "owner") ->
         res = db.inventory_adjustment_suggestions.update_one(
             {"_id": oid}, {"$set": {"review_status": "pending"}, "$unset": {"owner_decision": "", "decided_at": ""}})
         ref = f"inventory_adjustment_suggestions:{item_id}"
+    elif kind == "review":
+        # 리뷰 액션은 다운스트림 부작용이 없어 안전하게 pending 으로 되돌림. No downstream effect → safe reopen.
+        res = db.review_actions.update_one(
+            {"_id": oid}, {"$set": {"status": "pending"}, "$unset": {"owner_decision": "", "decided_at": ""}})
+        ref = f"review_actions:{item_id}"
     else:
         return {"ok": False, "error": "unknown kind"}
     if res.matched_count == 0:
@@ -372,3 +380,131 @@ def morning_digest(db: Database, store_id: str = STORE_ID) -> dict:
     return {"orders": cards["orders"], "revenue": cards["revenue"],
             "low_stock": len(cards["low_stock"]), "needs_you": approvals["total"],
             "agent_actions": cards["agent_actions"]}
+
+
+def reconcile(db: Database, store_id: str = STORE_ID) -> dict:
+    """
+    운영 정합성 검증 — 에이전트가 행동한 뒤, 그 결과가 운영 데이터와 맞는지 6개 불변식 점검.
+    Ops reconciliation — after the agent acts, verify the results are consistent with the data
+    (6 invariants). Pure aggregation, no LLM. 'agent가 행동한다'를 넘어 '결과를 검증한다'.
+    """
+    checks: list[dict] = []
+
+    def add(name: str, passed: bool, detail: str):
+        checks.append({"name": name, "passed": bool(passed), "detail": detail})
+
+    # 1) 확정 주문마다 재고 이벤트가 있는가 / every confirmed order has inventory events
+    try:
+        order_ids = [o["_id"] for o in db.orders.find(
+            {"store_id": store_id, "status": "confirmed"}, {"_id": 1})]
+        missing = sum(1 for oid in order_ids
+                      if db.inventory_events.count_documents(
+                          {"store_id": store_id, "source_order_id": oid}) == 0)
+        add("orders_have_inventory_events", missing == 0,
+            f"{len(order_ids) - missing}/{len(order_ids)} confirmed orders have events")
+    except Exception as e:  # noqa: BLE001
+        add("orders_have_inventory_events", False, f"error: {str(e)[:60]}")
+
+    # 2) 주문에서 비롯된 이벤트의 delta 가 음수인가 — type 으로 우회되지 않게 source_order_id 기준.
+    # Order-sourced events have negative delta — keyed on source_order_id so a re-typed event can't slip past.
+    try:
+        bad = db.inventory_events.count_documents(
+            {"store_id": store_id, "source_order_id": {"$ne": None}, "delta": {"$gte": 0}})
+        add("order_events_are_negative", bad == 0, f"{bad} order-sourced events with non-negative delta")
+    except Exception as e:  # noqa: BLE001
+        add("order_decrements_are_negative", False, f"error: {str(e)[:60]}")
+
+    # 3) 음수 재고가 없는가 / no negative stock
+    try:
+        neg = db.inventory.count_documents({"store_id": store_id, "on_hand": {"$lt": 0}})
+        add("no_negative_stock", neg == 0, f"{neg} products with on_hand<0")
+    except Exception as e:  # noqa: BLE001
+        add("no_negative_stock", False, f"error: {str(e)[:60]}")
+
+    # 4) 저재고 상품에 대기 재입고 task가 있는가. 저재고 정의는 summary_cards/restock 트리거와 동일하게
+    #    on_hand<=threshold 로 통일(한 화면에서 정의가 갈리지 않게). Same low-stock predicate everywhere.
+    try:
+        low = list(db.inventory.find(
+            {"store_id": store_id, "$expr": {"$lte": ["$on_hand", "$threshold"]}}, {"product_id": 1, "_id": 0}))
+        unhandled = sum(1 for it in low if db.restock_tasks.count_documents(
+            {"store_id": store_id, "product_id": it["product_id"], "status": "pending"}) == 0)
+        add("low_stock_has_restock_task", unhandled == 0,
+            f"{len(low) - unhandled}/{len(low)} low items have a pending restock")
+    except Exception as e:  # noqa: BLE001
+        add("low_stock_has_restock_task", False, f"error: {str(e)[:60]}")
+
+    # 5) 리뷰 액션마다 원본 리뷰가 있는가 / every review action has its source review
+    try:
+        orphan = sum(1 for a in db.review_actions.find({"store_id": store_id}, {"review_id": 1})
+                     if a.get("review_id") and db.reviews.count_documents({"_id": a["review_id"]}) == 0)
+        add("review_actions_have_source_review", orphan == 0, f"{orphan} orphan review actions")
+    except Exception as e:  # noqa: BLE001
+        add("review_actions_have_source_review", False, f"error: {str(e)[:60]}")
+
+    # 6) 오늘 write 로그의 output_refs가 Evidence에서 resolve되는가(리포트 윈도우와 동일 범위).
+    # Today's write-log output_refs resolve to docs (same window as the report, not an arbitrary last-N).
+    try:
+        refs = []
+        for log in db.agent_action_logs.find(
+                {"store_id": store_id, "action_type": "write", "timestamp": {"$gte": start_of_today_utc()}}):
+            refs.extend(log.get("output_refs", []))
+        resolvable = [r for r in resolve_refs(db, refs) if r["id"] is not None] if refs else []
+        unresolved = sum(1 for r in resolvable if r["doc"] is None)
+        add("write_refs_resolve_in_evidence", unresolved == 0,
+            f"{len(resolvable) - unresolved}/{len(resolvable)} today's write refs resolve to a document")
+    except Exception as e:  # noqa: BLE001
+        add("write_refs_resolve_in_evidence", False, f"error: {str(e)[:60]}")
+
+    passed = sum(c["passed"] for c in checks)
+    return {"checks": checks, "passed": passed, "total": len(checks),
+            "healthy": passed == len(checks)}
+
+
+def daily_ops_report(db: Database, store_id: str = STORE_ID) -> dict:
+    """
+    "퇴근 동안 agent가 뭘 처리했나" 하루 마감 리포트 — 기존 집계를 재활용해 한 화면 + 3문장 요약.
+    End-of-day report: what the agent handled while the owner was off-duty. Reuses existing
+    aggregations + a templated 3-sentence summary (deterministic, no LLM — demo-safe).
+    """
+    # "off-duty 동안"이라는 한 문장이므로 모든 수치를 같은 윈도우(오늘 UTC)로 맞춘다(혼합 금지).
+    # The "while you were off-duty" sentence is one window → scope EVERY number to today (no today/all-time mix).
+    today = start_of_today_utc()
+    since = {"$gte": today}
+    cards = summary_cards(db, store_id, since=today)
+    impact = impact_metrics(db, store_id)            # 누적 절감치(라벨로 분리 표시) / lifetime estimate, shown separately
+    ops = ops_metrics(db, store_id)
+    approvals = pending_approvals(db, store_id)
+    recon = reconcile(db, store_id)
+
+    agent_tools = ["create_order", "write_inventory_event", "create_restock_task", "analyze_shelf_photo"]
+    agent_actions = db.agent_action_logs.count_documents(
+        {"store_id": store_id, "action_type": "write", "tool_name": {"$in": agent_tools}, "timestamp": since})
+    review_actions = db.review_actions.count_documents({"store_id": store_id, "created_at": since})
+    restock_created = db.agent_action_logs.count_documents(
+        {"store_id": store_id, "tool_name": "create_restock_task", "timestamp": since})
+    mcp_calls = db.agent_action_logs.count_documents(
+        {"store_id": store_id, "tool_name": {"$regex": "^mongodb_mcp\\."}, "timestamp": since})
+
+    def plural(n, noun):
+        return f"{n} {noun}" + ("" if n == 1 else "s")
+
+    # 템플릿 3문장 요약(결정적, 단/복수 처리). Templated 3-sentence summary (deterministic, plural-aware).
+    failed = "No failed tool calls were detected." if ops["errors"] == 0 \
+        else f"{plural(ops['errors'], 'tool call')} failed and need a look."
+    health = "All ops-health checks passed." if recon["healthy"] \
+        else f"{plural(recon['total'] - recon['passed'], 'ops-health check')} need attention."
+    summary = (
+        f"While you were off-duty, Off-Duty took {plural(agent_actions, 'agent action')}, "
+        f"processed {plural(cards['orders'], 'customer order')}, routed "
+        f"{plural(review_actions, 'review issue')} to Needs you, and created "
+        f"{plural(restock_created, 'restock task')}. {failed} {health}")
+
+    return {
+        "orders_today": cards["orders"], "revenue_today": cards["revenue"],
+        "agent_actions": agent_actions, "review_actions": review_actions,
+        "restock_tasks_created": restock_created, "pending_approvals": approvals["total"],
+        "mcp_calls": mcp_calls, "estimated_minutes_saved": impact["owner_minutes_saved_est"],
+        "errors": ops["errors"], "window": "today (UTC)",
+        "ops_health": {"passed": recon["passed"], "total": recon["total"], "checks": recon["checks"]},
+        "summary": summary,
+    }

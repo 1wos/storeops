@@ -1,9 +1,11 @@
 """
-Customer Ordering sub-agent. 가용성 기반 주문/추천/협상.
-Customer Ordering sub-agent. Availability-grounded ordering / recommendation / negotiation.
+Customer Ordering sub-agent. 가용성 기반 주문/번들/협상.
+Customer Ordering sub-agent. Availability-grounded ordering / bundling / negotiation.
 
-스키마: inventory.product_id 는 ObjectId, 쓰기는 pymongo(sync).
-Schema: inventory.product_id is an ObjectId; writes use pymongo (sync).
+로직은 _sources/Customer-Order-Flow 에서 이식하되, 우리 골격(pymongo sync) +
+우리 시드 스키마(inventory.product_id 가 ObjectId)에 맞춰 재구현.
+Logic ported from _sources/Customer-Order-Flow, re-implemented for our skeleton
+(pymongo sync) and our seed schema (inventory.product_id is an ObjectId).
 """
 from __future__ import annotations
 
@@ -72,6 +74,8 @@ def create_order(items: list[dict], discount_pct: float = 0.0, conversation_id: 
         pid = safe_oid(it.get("product_id"))
         if pid is None:
             return {"error": f"invalid product_id: {it.get('name', it.get('product_id'))}"}
+        if int(it.get("qty", 0)) <= 0:                 # 양수 수량만 / positive quantities only
+            return {"error": f"quantity must be positive for {it.get('name', it.get('product_id'))}"}
         inv = db.inventory.find_one({"store_id": STORE_ID, "product_id": pid})
         if not inv:
             return {"error": f"product not found: {it.get('name', it['product_id'])}"}

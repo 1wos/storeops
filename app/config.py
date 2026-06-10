@@ -57,6 +57,8 @@ class Settings(BaseSettings):
     mcp_args: str = "-y,mongodb-mcp-server"          # 콤마구분 / comma-separated
     mcp_proof_timeout: float = 90.0                  # /api/mcp-proof 상한(초) / cap (cold start + free tier)
     chat_timeout: float = 60.0                       # /api/chat 한 턴 상한(초) — Vertex gemini-3 툴턴이 ~40s / per-turn cap
+    review_scan_limit: int = 5                        # 한 번에 스캔할 리뷰 수(각 ~Gemini 1콜) / reviews per scan
+    review_match_confidence: float = 0.9              # 리뷰 상품매칭 confidence(하드코딩 금지) / product-match confidence
 
     # Atlas Search + Vector Search (vision/product matching).
     # 임베딩 모델은 트랙 규칙상 Google(Gemini) 또는 MongoDB(Voyage) 제공만.

@@ -1,0 +1,17 @@
+# keep the image lean + never ship secrets/large data
+.env
+*.env.local
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+_sources/
+_refs/
+data/raw/
+data/processed/
+node_modules/
+tests/
+*.md
+.git/
+Dockerfile
+.dockerignore

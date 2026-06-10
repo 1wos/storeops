@@ -4,6 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Off-Duty · Counter</title>
+<!-- 테마를 페인트 전에 적용해 깜빡임 방지. Apply saved theme before paint to avoid a flash. -->
+<script>try{if(localStorage.getItem('odt')==='light')document.documentElement.classList.add('light')}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
@@ -11,6 +13,15 @@
     --canvas:#0A0F0E;--s1:#141A19;--s2:#1E2625;--line:rgba(180,190,185,.12);--line2:rgba(180,190,185,.20);
     --green:#00ED64;--amber:#E0A23D;--ink:#F2F5F3;--mut:#9DAAA6;--sub:#66726E;--vision:#B388F0;--read:#5AA9E6;
   }
+  /* ── Light theme (toggle) — 다크와 동일 토큰 재맵핑. Same token remap as the console. ── */
+  :root.light{
+    --canvas:#F5F8F6; --s1:#FFFFFF; --s2:#EDF1EE;
+    --line:rgba(18,48,34,.12); --line2:rgba(18,48,34,.22);
+    --green:#00874A; --ink:#0C1714; --mut:#586460; --sub:#87918B;
+  }
+  html.light .wrap{background:linear-gradient(180deg,rgba(0,0,0,.03),transparent)!important}
+  .theme{background:transparent;border:1px solid var(--line2);color:var(--mut);border-radius:9999px;width:30px;height:30px;cursor:pointer;font-size:14px;line-height:1;font-family:inherit;flex-shrink:0}
+  .theme:hover{border-color:var(--green);color:var(--green)}
   *{box-sizing:border-box}
   body{margin:0;background:var(--canvas);color:var(--ink);font-family:Inter,system-ui,sans-serif;font-size:15px;-webkit-font-smoothing:antialiased}
   header{display:flex;align-items:center;gap:12px;padding:16px 24px;border-bottom:1px solid var(--line)}
@@ -53,6 +64,7 @@
 <header>
   <span class="dot"></span><span class="logo">Off-Duty</span><span class="tag">Counter</span>
   <span class="right" onclick="reset()">New customer ↺</span>
+  <button class="theme" id="themeBtn" onclick="toggleTheme()" title="Toggle light / dark">🌙</button>
 </header>
 <div class="wrap">
   <div class="avail" id="avail"></div>
@@ -81,7 +93,9 @@ async function send(text){
   const t=(text??$('#in').value).trim(); if(!t||busy)return;
   busy=true; $('#in').value=''; bubble('user',t);
   const th=document.createElement('div'); th.className='think';
-  th.innerHTML='<span class="sp"></span><span>checking inventory & rules…</span>'; chat.appendChild(th); scroll();
+  const STEPS=['reading your order…','checking live inventory…','applying store rules…','writing your reply…'];
+  let si=0; th.innerHTML='<span class="sp"></span><span class="tx">'+STEPS[0]+'</span>'; chat.appendChild(th); scroll();
+  const stp=setInterval(()=>{ if(si<STEPS.length-1){ si++; const x=th.querySelector('.tx'); if(x)x.textContent=STEPS[si]; } },1500);
   // 멈춘 응답에 영원히 갇히지 않게 클라이언트 타임아웃(AbortController). Client timeout so a hung call can't freeze the UI.
   const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(), 65000);
   let r;
@@ -91,7 +105,7 @@ async function send(text){
   }catch(e){
     r={answer: e.name==='AbortError' ? "That took too long — please try again." : "Sorry, I had trouble there. Try again?", delegation_path:[]};
   }finally{
-    clearTimeout(to); th.remove(); busy=false;   // busy 는 무조건 해제 / always release the lock
+    clearTimeout(to); clearInterval(stp); th.remove(); busy=false;   // busy 는 무조건 해제 / always release the lock
   }
   bubble('bot', r.answer||'…');
   if((r.delegation_path||[]).length){ const p=document.createElement('div'); p.className='path';
@@ -110,6 +124,13 @@ async function renderAvail(){
   }catch(e){ $('#avail').innerHTML='<span class="lbl" style="color:var(--amber)">Availability unavailable</span>'; }
 }
 $('#in').addEventListener('keydown',e=>{ if(e.key==='Enter')send(); });
+// 라이트/다크 토글 — 콘솔과 동일(localStorage 키 'odt' 공유). Theme toggle, shares the 'odt' key with the console.
+function toggleTheme(){
+  const light=document.documentElement.classList.toggle('light');
+  try{ localStorage.setItem('odt', light?'light':'dark'); }catch(e){}
+  const b=document.getElementById('themeBtn'); if(b)b.textContent=light?'☀️':'🌙';
+}
+(function(){ const b=document.getElementById('themeBtn'); if(b)b.textContent=document.documentElement.classList.contains('light')?'☀️':'🌙'; })();
 greet(); renderAvail();
 </script>
 </body>

@@ -2,8 +2,10 @@
 Inventory / Restock sub-agent. 주문→재고이벤트→임계치→재입고 task.
 Inventory / Restock sub-agent. order → inventory_event → threshold → restock task.
 
-쓰기는 '큐레이트된 도메인 툴'로만 (least privilege). 스키마: inventory.product_id 는 ObjectId.
-Writes go only through curated domain tools (least privilege). Schema: inventory.product_id is an ObjectId.
+쓰기는 '큐레이트된 도메인 툴'로만 (least privilege). 로직은
+_sources/Customer-Order-Flow 에서 이식하되 우리 스키마(ObjectId product_id)에 맞춤.
+Writes go only through curated domain tools (least privilege). Logic ported from
+_sources/Customer-Order-Flow, adapted to our schema (ObjectId product_id).
 """
 from __future__ import annotations
 

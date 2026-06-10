@@ -42,6 +42,30 @@ def impact() -> dict:
             "owner_minutes_saved_est": 17, "basis": "MOCK data (demo)"}
 
 
+def _recon_checks() -> list:
+    names = ["orders_have_inventory_events", "order_events_are_negative", "no_negative_stock",
+             "low_stock_has_restock_task", "review_actions_have_source_review",
+             "write_refs_resolve_in_evidence"]
+    details = ["3/3 confirmed orders have events", "0 order-sourced events with non-negative delta",
+               "0 products with on_hand<0", "1/1 low items have a pending restock",
+               "0 orphan review actions", "9/9 today's write refs resolve to a document"]
+    return [{"name": n, "passed": True, "detail": d} for n, d in zip(names, details)]
+
+
+def reconciliation() -> dict:
+    return {"checks": _recon_checks(), "passed": 6, "total": 6, "healthy": True}
+
+
+def daily_report() -> dict:
+    return {"orders_today": 17, "revenue_today": 131.95, "agent_actions": 12, "review_actions": 2,
+            "restock_tasks_created": 1, "pending_approvals": 3, "mcp_calls": 2,
+            "estimated_minutes_saved": 17, "errors": 0, "window": "today (UTC)",
+            "ops_health": {"passed": 6, "total": 6, "checks": _recon_checks()},
+            "summary": ("While you were off-duty, Off-Duty took 12 agent actions, processed 17 "
+                        "customer orders, routed 2 review issues to Needs you, and created 1 restock "
+                        "task. No failed tool calls were detected. All ops-health checks passed.")}
+
+
 def ops() -> dict:
     return {"total_actions": 42, "errors": 0, "success_rate": 1.0, "writes": 23,
             "by_tool": [{"tool": "get_availability", "count": 12, "errors": 0},
@@ -80,6 +104,22 @@ def timeline(limit: int = 20) -> list:
 
 
 def evidence(trace_id: str) -> dict:
+    # 리뷰 trace 면 분류→매칭→라우팅 trail 을 반환(주문 trail 과 구분). Review trace → review trail.
+    if "rev" in (trace_id or ""):
+        return {"trace_id": trace_id, "step_count": 3, "evidence_count": 2,
+                "steps": [
+                    {"action_type": "read", "tool_name": "classify_review",
+                     "summary": "mixed/inventory_issue (action=True)"},
+                    {"action_type": "read", "tool_name": "match_products",
+                     "summary": "matched ['Oat Milk Latte', 'Brownie'] -> target Brownie"},
+                    {"action_type": "write", "tool_name": "route_review_action",
+                     "summary": "Routed to Needs you: restock (inventory_issue)"}],
+                "evidence": {
+                    "reviews": [{"doc": {"_id": "rv_mock", "channel": "demo", "rating": 3,
+                                         "text": "Loved the oat latte, but the brownies were sold out again.",
+                                         "issue_type": "inventory_issue"}}],
+                    "review_actions": [{"doc": {"product_name": "Brownie", "suggested_owner_action": "restock",
+                                                "requires_owner_approval": True, "status": "pending"}}]}}
     return {"trace_id": trace_id, "step_count": 3, "evidence_count": 3,
             "steps": [
                 {"action_type": "read", "tool_name": "get_availability",
@@ -97,10 +137,52 @@ def evidence(trace_id: str) -> dict:
 
 
 def approvals() -> dict:
-    return {"total": 2,
+    return {"total": 3,
             "restock": [{"task_id": "task_mock_1", "name": "Oat Milk Latte"}],
             "suggestions": [{"suggestion_id": "sugg_mock_1", "name": "Brownie",
-                             "signal": "low", "confidence": 0.82}]}
+                             "signal": "low", "confidence": 0.82}],
+            "reviews": [{"action_id": "rev_mock_1", "name": "Brownie", "issue_type": "inventory_issue",
+                         "severity": "medium", "recommended_action": "restock",
+                         "excerpt": "Loved the oat latte, but the brownies were sold out again.",
+                         "reply_draft": "So glad you loved the oat latte! Sorry the brownies were out — restocking now."}]}
+
+
+def reviews_list() -> dict:
+    return {"reviews": [
+        {"review_id": "r1", "source": "google", "author": "Priya N.", "rating": 3,
+         "text": "Loved the oat latte, but the brownies were sold out again.", "status": "processed",
+         "sentiment": "mixed", "issue_type": "inventory_issue"},
+        {"review_id": "r2", "source": "google", "author": "Dan P.", "rating": 5,
+         "text": "The cold brew here is the best in the neighborhood.", "status": "processed",
+         "sentiment": "positive", "issue_type": "praise"},
+        {"review_id": "r3", "source": "yelp", "author": "Sara L.", "rating": 1,
+         "text": "There was a hair in my brownie.", "status": "new", "sentiment": None, "issue_type": None}]}
+
+
+def reviews_scan() -> dict:
+    return {"processed_count": 3, "actions_created": 2, "processed": [
+        {"review_id": "r1", "author": "Priya N.", "rating": 3, "sentiment": "mixed",
+         "issue_type": "inventory_issue", "product_mentions": ["Oat Milk Latte", "Brownie"],
+         "product_name": "Brownie",
+         "inventory_status": {"known": True, "available": 0, "threshold": 5, "low": True},
+         "recommended_action": "restock", "requires_owner_approval": True,
+         "reply_draft": "So glad you loved the oat latte! Sorry the brownies were out — restocking now.",
+         "routed_to_needs_you": True, "trace_id": "trace_mock_rev_1",
+         "text": "Loved the oat latte, but the brownies were sold out again."},
+        {"review_id": "r3", "author": "Sara L.", "rating": 1, "sentiment": "negative",
+         "issue_type": "refund_or_complaint", "product_mentions": ["Brownie"], "product_name": "Brownie",
+         "inventory_status": {"known": True, "available": 10, "threshold": 5, "low": False},
+         "recommended_action": "owner_reply", "requires_owner_approval": True,
+         "reply_draft": "We're so sorry about that, this isn't our standard. Please DM us so we can make it right.",
+         "routed_to_needs_you": True, "trace_id": "trace_mock_rev_2",
+         "text": "There was a hair in my brownie."},
+        {"review_id": "r2", "author": "Dan P.", "rating": 5, "sentiment": "positive",
+         "issue_type": "praise", "product_mentions": ["Cold Brew"], "product_name": "Cold Brew",
+         "inventory_status": {"known": True, "available": 12, "threshold": 6, "low": False},
+         "recommended_action": "none", "requires_owner_approval": False,
+         "reply_draft": "Thank you so much, see you again soon!",
+         "routed_to_needs_you": False, "trace_id": "trace_mock_rev_3",
+         "text": "The cold brew here is the best in the neighborhood."}]}
 
 
 def chat(message: str) -> dict:

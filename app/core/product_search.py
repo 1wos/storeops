@@ -2,9 +2,12 @@
 상품 카탈로그 매칭 — Atlas Search($search) + Vector Search($vectorSearch) 병행.
 Product catalog matching — Atlas Search ($search) + Vector Search ($vectorSearch).
 
-두 검색을 모두 돌려 RRF 로 merge → 'operational + semantic + vector 한 플랫폼' 시연.
-Runs BOTH retrieval modes and merges them with Reciprocal Rank Fusion — operational +
-semantic + vector on one platform.
+원본(_sources/Store-State-Vision-Flow/matching.py, 비전 엔지니어 작성)을 우리 골격
+(pymongo + config)으로 충실히 이식. 두 검색을 모두 돌려 merge → MongoDB 트랙이
+원하는 'operational + semantic + vector 한 플랫폼' 사용을 시연한다.
+Faithfully ported from the original (a vision engineer's matching.py) to our skeleton.
+Runs BOTH retrieval modes and merges — exactly the MongoDB-track story (operational +
+semantic + vector on one platform).
 
 임베딩 모델은 트랙 규칙대로 Google(Gemini) 제공 모델 사용.
 Embedding model is a Google-provided model (Gemini), per track rules.

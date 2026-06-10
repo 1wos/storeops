@@ -99,6 +99,59 @@ def c_vision_guard(db):
     return (m["ambiguous"], f"low-confidence/unknown match ambiguous={m['ambiguous']} (best={m.get('best_name')})")
 
 
+@check("review_routing_guardrail — sensitive/stock routes to Needs You, praise does not")
+def c_review_routing(db):
+    # 순수 라우팅 규칙(결정적) + 상품 매칭(Atlas) 를 GT 기준으로 검증. Deterministic GT for the router.
+    from app.flows.review_to_action import route_decision
+    cases = [
+        route_decision("inventory_issue", "medium", True) == ("restock", True),
+        route_decision("inventory_issue", "medium", False) == ("owner_reply", True),
+        route_decision("refund_or_complaint", "high", False) == ("owner_reply", True),
+        route_decision("praise", "low", False) == ("none", False),
+        route_decision("service_issue", "low", False) == ("none", False),
+    ]
+    brownie = match_label(db, "brownies", 0.9).get("best_name")
+    ok = all(cases) and (brownie or "").lower().startswith("brownie")
+    return (ok, f"routing {sum(cases)}/5 correct, 'brownies' -> {brownie}")
+
+
+@check("review_to_action_ground_truth — review classified + matched + routed + traced")
+def c_review_gt(db):
+    # 정전 GT 케이스를 실제 파이프라인(Gemini 분류+매칭+라우팅)으로 1건 검증. End-to-end on one labeled case.
+    from app.flows.review_to_action import scan_reviews
+    txt = "Loved the oat latte, but the brownies were sold out again."
+    db.reviews.delete_many({"store_id": STORE_ID, "text": txt})
+    # 다른 new 리뷰(시드/실데이터)를 잠시 'park' 해서 스캔이 이 케이스만 처리하게 격리.
+    # Park other new reviews so the scan isolates this one case (the DB may hold many seeded reviews).
+    db.reviews.update_many({"store_id": STORE_ID, "status": "new"}, {"$set": {"status": "_parked"}})
+    db.reviews.insert_one({"store_id": STORE_ID, "source": "gt_check", "channel": "demo",
+                           "rating": 3, "text": txt, "status": "new"})
+    try:
+        res = scan_reviews(db, STORE_ID, limit=1)
+        p = next((x for x in res["processed"] if x["text"] == txt), None)
+    finally:
+        db.reviews.update_many({"store_id": STORE_ID, "status": "_parked"}, {"$set": {"status": "new"}})
+    if not p:
+        return (False, "review not processed")
+    ev = evidence_for_trace(db, p["trace_id"], STORE_ID)
+    ok = (p["issue_type"] == "inventory_issue"
+          and any("brownie" in (m or "").lower() for m in p.get("product_mentions", []))
+          and bool(p.get("reply_draft"))
+          and p.get("requires_owner_approval") is True
+          and bool(ev) and ev.get("evidence_count", 0) >= 1)
+    return (ok, f"issue={p['issue_type']}, mentions={p.get('product_mentions')}, "
+                f"approval={p.get('requires_owner_approval')}, trace={'yes' if ev else 'NO'}")
+
+
+@check("reconciliation_clean — ops data-integrity invariants hold after agent actions")
+def c_reconcile(db):
+    from app.flows.owner_read import reconcile
+    r = reconcile(db, STORE_ID)
+    failed = [c["name"] for c in r["checks"] if not c["passed"]]
+    return (r["healthy"], f"{r['passed']}/{r['total']} checks pass"
+            + (f" · failed: {failed}" if failed else ""))
+
+
 def _oid(pid):
     from bson import ObjectId
     return ObjectId(str(pid))

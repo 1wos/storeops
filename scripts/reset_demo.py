@@ -28,6 +28,7 @@ BASELINE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "demo_b
 TRANSIENT = [
     "orders", "inventory_events", "restock_tasks",
     "shelf_observations", "inventory_adjustment_suggestions", "agent_action_logs",
+    "review_actions",
 ]
 
 
@@ -86,6 +87,11 @@ def clean_transient(db):
     for c in TRANSIENT:
         n = db[c].delete_many({"store_id": STORE_ID}).deleted_count
         print(f"  {c}: -{n}")
+    # 리뷰는 지우지 않고 상태만 'new' 로 되돌려 다시 스캔 가능하게. Reset reviews to re-scannable.
+    rv = db.reviews.update_many(
+        {"store_id": STORE_ID},
+        {"$set": {"status": "new"}, "$unset": {"sentiment": "", "issue_type": "", "trace_id": "", "processed_at": ""}})
+    print(f"  reviews: {rv.modified_count} reset to 'new'")
 
 
 def status(db):

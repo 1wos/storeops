@@ -4,14 +4,27 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Off-Duty · Ops Console</title>
+<!-- 테마를 페인트 전에 적용해 깜빡임 방지. Apply saved theme before paint to avoid a flash. -->
+<script>try{if(localStorage.getItem('odt')==='light')document.documentElement.classList.add('light')}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
   :root{
     --canvas:#0A0F0E; --s1:#141A19; --s2:#1E2625; --line:rgba(180,190,185,.12); --line2:rgba(180,190,185,.20);
     --green:#00ED64; --amber:#E0A23D; --ink:#F2F5F3; --mut:#9DAAA6; --sub:#66726E;
-    --read:#5AA9E6; --write:#00ED64; --recommend:#E0A23D; --vision:#B388F0; --err:#F0664F;
+    --read:#5AA9E6; --write:#00ED64; --recommend:#E0A23D; --vision:#B388F0; --review:#E069A8; --err:#F0664F;
   }
+  /* ── Light theme (toggle) — 토큰 재맵핑. 그린은 흰 배경에서 텍스트로도 읽히게 한 단계 진하게. ── */
+  :root.light{
+    --canvas:#F5F8F6; --s1:#FFFFFF; --s2:#EDF1EE;
+    --line:rgba(18,48,34,.12); --line2:rgba(18,48,34,.22);
+    --green:#00874A; --write:#00874A;
+    --ink:#0C1714; --mut:#586460; --sub:#87918B;
+  }
+  html.light header{background:rgba(245,248,246,.85)}
+  html.light .subnav{background:rgba(245,248,246,.92)}
+  .theme{margin-left:10px;background:transparent;border:1px solid var(--line2);color:var(--mut);border-radius:9999px;width:30px;height:30px;cursor:pointer;font-size:14px;line-height:1;font-family:inherit;flex-shrink:0}
+  .theme:hover{border-color:var(--green);color:var(--green)}
   *{box-sizing:border-box}
   body{margin:0;background:var(--canvas);color:var(--ink);font-family:Inter,system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
   .eyebrow{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--sub)}
@@ -30,13 +43,42 @@
   .digest .needs b{color:var(--amber)}
   .digest .impact{margin-left:auto;padding-left:20px;border-left:1px solid var(--line)}
   .digest .impact b{color:var(--green)}
+  .report{margin-bottom:18px}
+  .rep-top{background:var(--s1);border:1px solid var(--line);border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:relative;animation:rise .5s ease}
+  .rep-ic{font-size:18px} .rep-sum{flex:1;min-width:280px;font-size:13px;color:var(--ink);line-height:1.5}
+  .rh{font-size:11px;font-weight:700;padding:4px 10px;border-radius:9999px;cursor:pointer;white-space:nowrap}
+  .rh-ok{color:var(--green);border:1px solid var(--green);background:rgba(0,237,100,.08)}
+  .rh-bad{color:var(--amber);border:1px solid var(--amber);background:rgba(224,162,61,.08)}
+  .rh-detail{display:none;flex-basis:100%;margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
+  .rh-detail.show{display:block} .rh-detail .row{font-size:11px;color:var(--mut)}
 
-  .ask{display:flex;gap:8px;margin:0 0 18px}
-  .ask input{flex:1;background:var(--s1);border:1px solid var(--line2);border-radius:8px;color:var(--ink);padding:11px 14px;font-size:14px;font-family:inherit}
-  .ask input:focus{outline:none;border-color:var(--green)}
-  .ask button{background:var(--green);color:#03130A;border:0;border-radius:8px;padding:0 18px;font-weight:600;cursor:pointer}
-  .askout{background:var(--s1);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:18px;display:none}
-  .askout .who{font-size:11px;color:var(--green);font-weight:600;margin-bottom:4px}
+  /* Ask block — input-forward action zone (careflow QuickStart pattern, our palette) */
+  .askwrap{background:linear-gradient(180deg,rgba(0,237,100,.05),var(--s1));border:1px solid var(--green);border-radius:14px;padding:16px 18px;margin-bottom:18px;box-shadow:0 0 0 1px rgba(0,237,100,.06),0 8px 30px rgba(0,0,0,.18)}
+  .chat-head{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:11px;display:flex;align-items:center;gap:7px}
+  .chat-head .ci{font-size:16px}
+  .chat-head .sub3{font-weight:400;color:var(--sub);font-size:12px}
+  .ask{display:flex;gap:8px}
+  .ask input{flex:1;background:var(--canvas);border:1px solid var(--line2);border-radius:10px;color:var(--ink);padding:13px 15px;font-size:15px;font-family:inherit;transition:.15s}
+  .ask input:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(0,237,100,.10)}
+  .ask button{background:var(--green);color:#03130A;border:0;border-radius:10px;padding:0 20px;font-weight:600;cursor:pointer;font-family:inherit}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
+  .chip{background:transparent;border:1px solid var(--line2);color:var(--mut);border-radius:9999px;padding:7px 13px;font-size:12.5px;cursor:pointer;transition:.15s;font-family:inherit}
+  .chip:hover{border-color:var(--green);color:var(--ink);background:rgba(0,237,100,.06)}
+  .askout{background:var(--canvas);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:14px;display:none}
+  .askout .who{font-size:11px;color:var(--green);font-weight:600;margin-bottom:6px}
+  /* stepped "Analysis" checklist while waiting (careflow AgentActivityFeed feel) */
+  .think .trow{display:flex;align-items:center;gap:9px;font-size:13px;padding:4px 0;color:var(--sub);transition:.2s}
+  .think .trow.now{color:var(--ink)} .think .trow.done{color:var(--mut)}
+  .think .trow .ck{width:16px;text-align:center;color:var(--green);flex-shrink:0}
+  .receipt{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:11.5px;color:var(--sub)}
+  .receipt .rt2{color:var(--mut)} .receipt a{color:var(--read);text-decoration:none}
+  /* one-click demo hero (careflow QuickStart) — shows the full agentic pipeline */
+  .demohero{display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:linear-gradient(100deg,rgba(0,237,100,.08),rgba(179,136,240,.06));
+    border:1px solid var(--line2);border-radius:14px;padding:14px 18px;margin-bottom:18px}
+  .demohero .dt{flex:1;min-width:260px;font-size:13px;color:var(--mut);line-height:1.5}
+  .demohero .dt b{color:var(--ink);font-weight:600}
+  .demohero button{background:var(--green);color:#03130A;border:0;border-radius:10px;padding:11px 18px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px;white-space:nowrap}
+  .demohero button:disabled{opacity:.5;cursor:default}
 
   .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
   .card{background:var(--s1);border:1px solid var(--line);border-radius:12px;padding:16px;transition:.15s}
@@ -54,6 +96,15 @@
   .appr{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--s2);display:flex;align-items:center;gap:10px;animation:rise .35s ease}
   .appr .ic{width:8px;height:8px;border-radius:9999px}
   .appr .t{flex:1} .appr .t b{font-weight:600} .appr .t span{color:var(--mut);font-size:12px}
+  .appr .t .sub2{color:var(--sub);font-size:11px;font-style:italic;margin-top:3px;max-width:560px}
+  .revs{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+  .rev{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--s2);animation:rise .3s ease}
+  .rev .rh{display:flex;align-items:center;gap:8px;font-size:12px}
+  .rev .chip2{font-size:10px;padding:2px 7px;border-radius:9999px;border:1px solid var(--line2);color:var(--mut)}
+  .rev .rt{font-size:13px;color:var(--ink);margin:6px 0}
+  .rev .rd{font-size:12px;color:var(--mut);border-left:2px solid var(--review);padding-left:8px;margin-top:6px}
+  .pos{color:var(--write)} .neg{color:var(--err)} .neu{color:var(--mut)} .mix{color:var(--amber)}
+  .lbl2{font-size:11px;color:var(--sub)}
   .appr-act{display:flex;gap:6px}
   .appr-act button{border-radius:8px;padding:6px 12px;font-weight:600;cursor:pointer;font-size:12px;font-family:inherit;background:transparent;transition:.12s}
   .bn-app{border:1px solid var(--green);color:var(--green)} .bn-app:active{background:var(--green);color:#03130A}
@@ -67,7 +118,10 @@
   .box.needs{border-color:rgba(224,162,61,.35);background:linear-gradient(180deg,rgba(224,162,61,.05),var(--s1))}
   .box.needs h2{color:var(--amber)}
   .vision{display:flex;flex-direction:column;gap:10px}
-  .vision input[type=file]{color:var(--mut);font-size:12px}
+  .file-row{display:flex;align-items:center;gap:10px}
+  .file-btn{background:transparent;border:1px solid var(--line2);color:var(--mut);border-radius:8px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;transition:.12s}
+  .file-btn:hover{border-color:var(--vision);color:var(--vision)}
+  .file-name{font-size:12px;color:var(--sub)}
   .vision button{align-self:flex-start;background:transparent;border:1px solid var(--vision);color:var(--vision);border-radius:8px;padding:7px 14px;font-weight:600;cursor:pointer;font-size:13px}
   .vout-item{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--line);font-size:13px}
   .mdb{background:var(--s1);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-bottom:18px}
@@ -112,6 +166,13 @@
   .think .bar::after{content:'';position:absolute;inset:0;width:38%;border-radius:9999px;background:linear-gradient(90deg,transparent,var(--green),transparent);animation:shimmer 1.15s linear infinite}
   @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   @keyframes pop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
+  /* 스티키 섹션 탭 — 숨기지 않고 점프(데모에서 기능 다 노출). Sticky section tabs — jump, don't hide. */
+  .subnav{position:sticky;top:52px;z-index:4;display:flex;gap:6px;flex-wrap:wrap;padding:10px 0;margin-bottom:8px;
+    background:rgba(10,15,14,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .subnav a{font-size:13px;font-weight:600;color:var(--mut);text-decoration:none;padding:7px 14px;border-radius:9999px;border:1px solid var(--line2);transition:.15s;cursor:pointer}
+  .subnav a:hover{color:var(--ink);border-color:var(--mut)}
+  .subnav a.active{color:var(--green);border-color:var(--green);background:rgba(0,237,100,.08)}
+  .sec{padding-top:6px} [id^="sec-"],#revCard{scroll-margin-top:108px}
   @media(max-width:820px){.cards{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}}
 </style>
 </head>
@@ -120,50 +181,99 @@
   <span class="dot"></span><span class="logo">Off-Duty</span>
   <span class="tag">Ops Console</span>
   <span class="right" id="meta">—</span>
+  <button class="theme" id="themeBtn" onclick="toggleTheme()" title="Toggle light / dark">🌙</button>
 </header>
 <main>
   <div class="eyebrow" style="margin-bottom:8px">While you were off-duty</div>
   <div class="digest" id="digest"></div>
 
-  <div class="box needs" style="margin-bottom:18px">
-    <h2>⚠ Needs you <span class="n" id="apprN"></span></h2>
-    <div id="approvals"><div class="empty">Loading…</div></div>
+  <!-- 채팅을 상단(2번째)으로 — 점주가 바로 찾도록. 입력이 화면의 주인공(careflow). -->
+  <!-- Chat sits up top so the owner finds it instantly — the input is the hero of the screen. -->
+  <div class="askwrap" id="chatCard">
+    <div class="chat-head"><span class="ci">💬</span> Ask Off-Duty <span class="sub3">· your store assistant — type or tap a suggestion</span></div>
+    <div class="ask">
+      <input id="askIn" placeholder="Ask anything — e.g. How did we do today?" />
+      <button onclick="ask()">Ask</button>
+    </div>
+    <!-- 칩마다 다른 sub-agent 로 라우팅되게 골랐음(careflow QuickStart 원칙: 무엇을 눌러도 다른 흐름이 보임). -->
+    <!-- Each chip routes to a distinct sub-agent so any click shows a different flow. -->
+    <div class="chips" id="askChips">
+      <span class="chip" onclick="askQuick(this.textContent)">How did we do today?</span>
+      <span class="chip" onclick="askQuick(this.textContent)">What did you handle while I was off?</span>
+      <span class="chip" onclick="askQuick(this.textContent)">What's running low?</span>
+      <span class="chip" onclick="askQuick(this.textContent)">What needs my approval?</span>
+    </div>
+    <div class="askout" id="askOut"></div>
   </div>
 
-  <div class="ask">
-    <input id="askIn" placeholder="Ask the owner assistant — e.g. How's the store today?  /  What did the agent do?" />
-    <button onclick="ask()">Ask</button>
-  </div>
-  <div class="askout" id="askOut"></div>
+  <!-- 섹션 탭: 누르면 점프(숨김 X) + 스크롤에 따라 활성 표시. Section tabs jump-scroll; active follows scroll. -->
+  <nav class="subnav" id="subnav">
+    <a data-sec="sec-overview" class="active">Overview</a>
+    <a data-sec="sec-reviews">Reviews</a>
+    <a data-sec="sec-activity">Activity</a>
+    <a data-sec="sec-mongodb">MongoDB</a>
+  </nav>
 
-  <div class="cards" id="cards"></div>
+  <section id="sec-overview" class="sec">
+    <div class="report" id="report"></div>
 
-  <details class="mdb">
-    <summary>MongoDB engine · how these numbers are computed</summary>
-    <div id="mdbBody" class="empty">Loading…</div>
-  </details>
+    <div class="demohero">
+      <div class="dt"><b>New here?</b> Watch the agent classify a customer review, match the product via <b>Atlas Vector Search</b>, check live stock, draft a reply, and route an action — in one click.</div>
+      <button id="demoBtn" onclick="runDemo()">▶ Run live demo</button>
+    </div>
 
-  <details class="mdb" id="mcpBox">
-    <summary>MongoDB MCP · run a live tool call</summary>
-    <div class="lbl2">Calls MongoDB through the official <b>MCP server</b> (read-only). Each tool call is written to the Evidence trail.</div>
-    <button class="mcp-btn" onclick="runMcpProof()">Run live MCP call ▶</button>
-    <div id="mcpOut" class="empty" style="margin-top:10px">Idle — click to call <code>list-collections</code> / <code>count</code> through MongoDB MCP.</div>
-  </details>
+    <div class="box needs" style="margin-bottom:18px">
+      <h2>⚠ Needs you <span class="n" id="apprN"></span></h2>
+      <div id="approvals"><div class="empty">Loading…</div></div>
+    </div>
 
-  <div class="grid2">
-    <div class="box">
-      <h2>Store-State <span class="hint">· upload a shelf photo (optional)</span></h2>
-      <div class="vision">
-        <input type="file" id="vphoto" accept="image/*" />
-        <button onclick="analyzePhoto()">Analyze photo</button>
-        <div id="vout" class="empty">No photo analyzed yet. Upload a shelf/counter photo and Gemini reads the stock.</div>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section id="sec-reviews" class="sec">
+    <div class="box" id="revCard">
+      <h2>Customer Reviews <span class="hint">· digital signal → store action</span>
+        <button class="mcp-btn" style="float:right;margin-top:-2px" id="scanBtn" onclick="scanReviews()">Scan reviews ▶</button></h2>
+      <div id="revOut" class="empty">Click “Scan reviews” — the agent classifies each review, matches the product via Atlas Search/Vector, checks stock, drafts a reply, and routes anything actionable to “Needs you”.</div>
+    </div>
+  </section>
+
+  <section id="sec-activity" class="sec">
+    <div class="grid2">
+      <div class="box">
+        <h2>Store-State <span class="hint">· upload a shelf photo (optional)</span></h2>
+        <div class="vision">
+          <div class="file-row">
+            <!-- 네이티브 input 은 OS 언어로 떠서(예: "파일 선택") 숨기고 영어 커스텀 버튼 사용 -->
+            <!-- Native input shows OS-locale text; hide it and use an English custom button -->
+            <label class="file-btn" for="vphoto">Choose photo</label>
+            <input type="file" id="vphoto" accept="image/*" hidden onchange="document.getElementById('vfname').textContent=this.files[0]?this.files[0].name:'No file chosen'" />
+            <span id="vfname" class="file-name">No file chosen</span>
+          </div>
+          <button onclick="analyzePhoto()">Analyze photo</button>
+          <div id="vout" class="empty">No photo analyzed yet. Upload a shelf/counter photo and Gemini reads the stock.</div>
+        </div>
+      </div>
+      <div class="box">
+        <h2>Agent Activity <span class="hint">· click a trace for MongoDB evidence</span></h2>
+        <div id="timeline"><div class="empty">Loading…</div></div>
       </div>
     </div>
-    <div class="box">
-      <h2>Agent Activity <span class="hint">· click a trace for MongoDB evidence</span></h2>
-      <div id="timeline"><div class="empty">Loading…</div></div>
-    </div>
-  </div>
+  </section>
+
+  <section id="sec-mongodb" class="sec">
+    <details class="mdb" open>
+      <summary>MongoDB engine · how these numbers are computed</summary>
+      <div id="mdbBody" class="empty">Loading…</div>
+    </details>
+
+    <details class="mdb" id="mcpBox">
+      <summary>MongoDB MCP · run a live tool call</summary>
+      <div class="lbl2">Calls MongoDB through the official <b>MCP server</b> (read-only). Each tool call is written to the Evidence trail.</div>
+      <button class="mcp-btn" onclick="runMcpProof()">Run live MCP call ▶</button>
+      <div id="mcpOut" class="empty" style="margin-top:10px">Idle — click to call <code>list-collections</code> / <code>count</code> through MongoDB MCP.</div>
+    </details>
+  </section>
 </main>
 
 <div class="drawer" id="drawer"><div class="pane" id="pane"></div></div>
@@ -181,8 +291,25 @@ function actionColor(s){ return toolColor(s.tool_name) || AC[s.action_type] || '
 function countUp(el,to,fmt){ const dur=600,t0=performance.now();
   function f(t){ const p=Math.min(1,(t-t0)/dur); el.textContent=fmt(Math.round(to*(0.5-Math.cos(Math.PI*p)/2))); if(p<1)requestAnimationFrame(f);} requestAnimationFrame(f); }
 
+// 하루 마감 리포트(3문장) + Ops health 배지(6체크). End-of-day report + ops-health badge.
+async function renderReport(){
+ try{
+  // daily-report 가 ops_health.checks 를 품으므로 reconcile 한 번만(중복 호출 제거). One reconcile, embedded.
+  const r=await (await fetch('/api/daily-report')).json();
+  const oh=r.ops_health||{passed:0,total:0,checks:[]};
+  const healthy=(oh.passed===oh.total);
+  const cls=healthy?'rh-ok':'rh-bad';
+  const checks=(oh.checks||[]).map(c=>`<div class="row"><span>${c.passed?'✓':'✗'} ${esc(c.name)}</span><span>${esc(c.detail)}</span></div>`).join('');
+  $('#report').innerHTML=`<div class="rep-top">
+      <span class="rep-ic">📋</span><div class="rep-sum">${esc(r.summary||'')}</div>
+      <span class="rh ${cls}" onclick="this.nextElementSibling.classList.toggle('show')">Ops health ${oh.passed}/${oh.total}</span>
+      <div class="rh-detail">${checks}</div></div>`;
+ }catch(e){ $('#report').innerHTML=''; }
+}
+
 async function load(){
   const m=await (await fetch('/health')).json(); $('#meta').textContent='store '+m.store_id+' · '+m.model;
+  renderReport();
   const [d,imp]=await Promise.all([
     fetch('/api/digest').then(r=>r.json()),
     fetch('/api/impact').then(r=>r.json()).catch(()=>({})),
@@ -216,6 +343,35 @@ async function renderMdb(){
       `<div class="lbl2">Collections · MongoDB operational memory</div>`+
       (h.collections||[]).map(c=>`<div class="row"><span>${c.collection}</span><span>${(c.count||0).toLocaleString()} docs · ${c.indexes} idx</span></div>`).join('');
   }catch(e){ $('#mdbBody').textContent='—'; }
+}
+
+// 리뷰 스캔 → 분류·매칭·재고확인·reply 초안 → 액션은 Needs You 로. Review-to-Action.
+const SENT={positive:'pos',negative:'neg',neutral:'neu',mixed:'mix'};
+let _scanning=false;
+async function scanReviews(){
+  if(_scanning)return; _scanning=true;          // 중복 스캔 방지 / no double-submit
+  const out=$('#revOut'), btn=$('#scanBtn'); if(btn)btn.disabled=true;
+  out.innerHTML='<span class="sp-mcp"></span>Reading reviews, matching products, drafting replies…';
+  try{
+    const r=await (await fetch('/api/reviews/scan',{method:'POST'})).json();
+    if(r.error){ out.innerHTML='<span style="color:var(--amber)">'+esc(r.error)+'</span>'; return; }
+    if(!(r.processed||[]).length){ out.innerHTML='<div class="empty">No new reviews to scan. Seed more with scripts/prepare_review_seed.py.</div>'; return; }
+    const cards=(r.processed||[]).map(p=>{
+      const inv=p.inventory_status||{};
+      const stock=inv.known?` · stock ${inv.available}${inv.low?' (low)':''}`:'';
+      const route=p.routed_to_needs_you?`<span class="chip2" style="border-color:var(--review);color:var(--review)">→ Needs you: ${esc(p.recommended_action)}</span>`:'<span class="chip2">no action</span>';
+      return `<div class="rev">
+        <div class="rh"><b>${esc(p.author||'guest')}</b> <span class="${SENT[p.sentiment]||'neu'}">●</span>
+          <span class="chip2">${esc(p.issue_type)}</span>${p.product_name?`<span class="chip2">${esc(p.product_name)}${esc(stock)}</span>`:''}
+          <a href="#" onclick="evidence('${esc(p.trace_id)}');return false" style="margin-left:auto;color:var(--read);font-size:11px">evidence →</a></div>
+        <div class="rt">“${esc(p.text||'')}”</div>
+        <div class="rd">✍ ${esc(p.reply_draft||'')}</div>
+        <div style="margin-top:6px">${route}</div></div>`;
+    }).join('');
+    out.innerHTML=`<div class="lbl2" style="margin-bottom:8px">Processed ${r.processed_count} reviews · ${r.actions_created} routed to “Needs you” ↑</div><div class="revs">${cards}</div>`;
+    renderApprovals(); renderTimeline(); load();
+  }catch(e){ console.error('scanReviews', e); out.innerHTML='<span style="color:var(--amber)">Review scan failed — retry.</span>'; }
+  finally{ _scanning=false; if(btn)btn.disabled=false; }
 }
 
 // 실제 MongoDB MCP 서버로 라이브 호출 → tool_calls 가시화 + Evidence 링크.
@@ -253,7 +409,11 @@ async function renderApprovals(){
       ${rowBtns('restock', r.task_id, r.name||'product')}</div>`),
     ...a.suggestions.map(s=>`<div class="appr"><span class="ic" style="background:var(--vision)"></span>
       <div class="t"><b>${esc(s.name||'item')}</b> <span>photo → ${esc(s.signal)} (conf ${(s.confidence||0).toFixed(2)})</span></div>
-      ${rowBtns('suggestion', s.suggestion_id, s.name||'item')}</div>`)
+      ${rowBtns('suggestion', s.suggestion_id, s.name||'item')}</div>`),
+    ...(a.reviews||[]).map(v=>`<div class="appr"><span class="ic" style="background:var(--review)"></span>
+      <div class="t"><b>${esc(v.name||v.issue_type||'review')}</b> <span>review → ${esc(v.recommended_action)} · ${esc(v.issue_type)} (${esc(v.severity)})</span>
+      <div class="sub2">“${esc(v.excerpt||'')}”</div></div>
+      ${rowBtns('review', v.action_id, v.name||v.issue_type||'review')}</div>`)
   ];
   // 리스트가 화면을 잡아먹지 않게 상위 N개만 + 나머지 카운트(시니어 폴리시). Cap to top N.
   const CAP=5, shown=rows.slice(0,CAP).join('');
@@ -315,19 +475,65 @@ async function evidence(id){
 function closeD(){ $('#drawer').classList.remove('open'); }
 $('#drawer').addEventListener('click',e=>{ if(e.target.id==='drawer')closeD(); });
 
-const THINK_STEPS=['Routing to the right agent…','Reading inventory & owner rules…','Aggregating store data…','Composing the answer…'];
+// 실시간 에이전트 trace: SSE 로 단계가 도착할 때마다 체크리스트에 진짜 경로를 추가(완료는 ✓, 현재는 스피너).
+// Live agent trace: each SSE step appends the REAL path to the checklist (done ✓, current spins).
+function thinkAddStep(rows,label){
+  [...rows.children].forEach(c=>{ c.className='trow done'; const k=c.querySelector('.ck'); if(k)k.textContent='✓'; });
+  const d=document.createElement('div'); d.className='trow now';
+  d.innerHTML=`<span class="ck"><span class="sp"></span></span><span>${esc(label)}</span>`;
+  rows.appendChild(d);
+}
+function thinkFinish(rows){ [...rows.children].forEach(c=>{ c.className='trow done'; const k=c.querySelector('.ck'); if(k)k.textContent='✓'; }); }
+// 답변 + "근거 영수증"(MongoDB 도구 N개 + evidence 링크) — 환각 아님을 보여줌. Answer + grounding receipt.
+function renderAnswer(r){
+  const tools=r.tools||[];
+  const receipt = tools.length
+    ? `<div class="receipt">⛁ Grounded in MongoDB · ${tools.length} tool call${tools.length>1?'s':''} <span class="rt2">(${tools.map(esc).join(', ')})</span>`+
+      (r.trace_id?` · <a href="#" onclick="evidence('${esc(r.trace_id)}');return false">see evidence →</a>`:'')+`</div>`
+    : '';
+  $('#askOut').innerHTML=`<div class="who">→ ${esc((r.delegation_path||[]).join(' → '))}</div>
+    <div style="animation:rise .4s ease">${esc(r.answer||'').replace(/\n/g,'<br>')}</div>${receipt}`;
+}
 async function ask(){
   const q=$('#askIn').value.trim(); if(!q)return;
   $('#askOut').style.display='block';
-  $('#askOut').innerHTML=`<div class="think"><div class="row"><span class="sp"></span><span id="thk">${THINK_STEPS[0]}</span></div><div class="bar"></div></div>`;
-  let si=0; const tk=setInterval(()=>{ si=(si+1)%THINK_STEPS.length; const l=document.getElementById('thk'); if(l)l.textContent=THINK_STEPS[si]; },900);
-  let r; try{ r=await (await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:q})})).json(); }
-  finally{ clearInterval(tk); }
-  $('#askOut').innerHTML=`<div class="who">→ ${esc((r.delegation_path||[]).join(' → '))}</div>
-    <div style="animation:rise .4s ease">${esc(r.answer||'').replace(/\n/g,'<br>')}</div>`;
+  $('#askOut').innerHTML=`<div class="think"><div class="bar"></div><div id="thkRows"></div></div>`;
+  const rows=$('#thkRows');
+  let result=null;
+  try{
+    const resp=await fetch('/api/chat/stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:q})});
+    if(!resp.ok||!resp.body) throw new Error('no stream');
+    const reader=resp.body.getReader(), dec=new TextDecoder(); let buf='';
+    while(true){
+      const {value,done}=await reader.read(); if(done)break;
+      buf+=dec.decode(value,{stream:true}); let i;
+      while((i=buf.indexOf('\n\n'))>=0){
+        const line=buf.slice(0,i).split('\n').find(l=>l.startsWith('data:')); buf=buf.slice(i+2);
+        if(!line)continue; let ev; try{ ev=JSON.parse(line.slice(5).trim()); }catch(_){ continue; }
+        if(ev.type==='step') thinkAddStep(rows,ev.label);
+        else if(ev.type==='answer') result=ev;
+      }
+    }
+  }catch(e){ result=null; }   // 스트림 실패 → 기존 /api/chat 폴백 / fall back to the plain endpoint
+  if(!result){
+    try{ result=await (await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:q})})).json(); }
+    catch(e){ result={answer:'Sorry, I had trouble there. Try again?',delegation_path:[]}; }
+  }
+  thinkFinish(rows);
+  renderAnswer(result);
   renderTimeline(); load();
 }
+// 칩 클릭 → 입력칸 채우고 바로 전송(빈 입력창 막막함 제거). Chip click fills the box and sends — kills the blank-input freeze.
+function askQuick(t){ const i=$('#askIn'); i.value=t; ask(); }
 $('#askIn')&&$('#askIn').addEventListener('keydown',e=>{ if(e.key==='Enter')ask(); });
+
+// 한 클릭 데모: 리뷰 카드로 스크롤 + 전체 파이프라인(분류→벡터매칭→재고→Needs You) 실행.
+// One-click demo: scroll to the reviews card and run the full pipeline.
+async function runDemo(){
+  const b=$('#demoBtn'); if(b)b.disabled=true;
+  $('#revCard').scrollIntoView({behavior:'smooth',block:'start'});
+  try{ await scanReviews(); } finally{ if(b)b.disabled=false; }
+}
 
 async function analyzePhoto(){
   const f=$('#vphoto').files[0]; if(!f){ $('#vout').textContent='Pick a photo first.'; return; }
@@ -348,6 +554,28 @@ let _polling=false;
 setInterval(async()=>{ if(_polling)return; _polling=true;
   try{ await Promise.all([renderApprovals(), renderTimeline()]); } finally{ _polling=false; }
 }, 5000);  // live feel
+
+// 라이트/다크 토글 — 클래스 플립 + localStorage 기억 + 아이콘 갱신. Theme toggle: flip class, persist, update icon.
+function toggleTheme(){
+  const light=document.documentElement.classList.toggle('light');
+  try{ localStorage.setItem('odt', light?'light':'dark'); }catch(e){}
+  const b=document.getElementById('themeBtn'); if(b)b.textContent=light?'☀️':'🌙';
+}
+(function(){ const b=document.getElementById('themeBtn'); if(b)b.textContent=document.documentElement.classList.contains('light')?'☀️':'🌙'; })();
+
+// 섹션 탭: 클릭=해당 섹션으로 점프, 스크롤=활성 탭 자동 갱신(scrollspy). Tab click jumps; scroll updates the active tab.
+(function(){
+  const links=[...document.querySelectorAll('.subnav a')];
+  const find=id=>links.find(l=>l.dataset.sec===id);
+  links.forEach(l=>l.addEventListener('click',()=>{
+    links.forEach(x=>x.classList.remove('active')); l.classList.add('active');
+    const sec=document.getElementById(l.dataset.sec); if(sec)sec.scrollIntoView({behavior:'smooth',block:'start'});
+  }));
+  const obs=new IntersectionObserver(ents=>{
+    ents.forEach(en=>{ if(en.isIntersecting){ links.forEach(x=>x.classList.remove('active')); const a=find(en.target.id); if(a)a.classList.add('active'); }});
+  },{rootMargin:'-112px 0px -55% 0px',threshold:0});
+  document.querySelectorAll('.sec').forEach(s=>obs.observe(s));
+})();
 </script>
 </body>
 </html>

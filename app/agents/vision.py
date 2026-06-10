@@ -5,8 +5,11 @@ Store-State Vision sub-agent. ONE shelf photo → Gemini Vision extraction →
 shelf_observation → product match → owner-review suggestions. (No dataset/training;
 a single photo is analyzed at runtime.)
 
-매칭은 Atlas Search(텍스트) + Vector Search 를 함께 사용. Matching uses Atlas Search + Vector Search.
-가드레일: 정확한 개수 X, 코어스 신호 + confidence, 불확실하면 점주 검토.
+로직은 _sources/Store-State-Vision-Flow 에서 이식하되 우리 골격(pymongo)+config+audit 에 맞춤.
+매칭은 M0 에서 바로 되는 텍스트 매칭으로(벡터는 인덱스 생성 후 확장).
+Ported from _sources/Store-State-Vision-Flow, adapted to our skeleton. Matching uses
+text match (works on M0); vector search is an extension once the index exists.
+가드레일(PRD §14): 정확한 개수 X, 코어스 신호 + confidence, 불확실하면 점주 검토.
 Guardrails: coarse stock SIGNAL + confidence (never exact counts); uncertain → owner review.
 """
 from __future__ import annotations
