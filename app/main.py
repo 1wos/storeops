@@ -224,6 +224,12 @@ def counter():
     return FileResponse(os.path.join(_STATIC, "counter.html"), headers=_NO_CACHE)
 
 
+@app.get("/layout", include_in_schema=False)
+def layout():
+    """Store Layout Advisor — merchandising / planogram placement tool. Runs standalone (no DB)."""
+    return FileResponse(os.path.join(_STATIC, "layout.html"), headers=_NO_CACHE)
+
+
 @app.get("/health", tags=["meta"])
 def health():
     if settings.mock_mode:

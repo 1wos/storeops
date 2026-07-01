@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>StoreOps · Store Layout Advisor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --canvas:#0A0F0E;--s1:#141A19;--s2:#1E2625;--line:rgba(180,190,185,.12);--line2:rgba(180,190,185,.22);
+    --green:#00ED64;--amber:#E0A23D;--ink:#F2F5F3;--mut:#9DAAA6;--sub:#66726E;--read:#5AA9E6;--err:#F0664F;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--ink);font-family:Inter,system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
+  header{display:flex;align-items:center;gap:12px;padding:14px 24px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(10,15,14,.85);backdrop-filter:blur(8px);z-index:5}
+  header .dot{width:7px;height:7px;border-radius:9999px;background:var(--green);box-shadow:0 0 8px var(--green)}
+  header .logo{font-weight:700;font-size:16px;letter-spacing:-.02em}
+  header .tag{font-size:11px;color:var(--mut);border:1px solid var(--line2);border-radius:9999px;padding:3px 10px}
+  header .right{margin-left:auto;display:flex;gap:8px}
+  .btn{background:transparent;border:1px solid var(--line2);color:var(--mut);border-radius:8px;padding:7px 13px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;transition:.14s}
+  .btn:hover{border-color:var(--green);color:var(--ink)}
+  .btn.p{background:var(--green);color:#03130A;border-color:var(--green)}
+  main{max-width:1240px;margin:0 auto;padding:18px 24px 60px;display:grid;grid-template-columns:1.5fr 1fr;gap:18px}
+  .eyebrow{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--sub);margin-bottom:10px}
+
+  /* store floor */
+  .floor{background:linear-gradient(180deg,var(--s1),var(--canvas));border:1px solid var(--line2);border-radius:14px;padding:16px}
+  .flowhint{font-size:11px;color:var(--sub);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+  .zones{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .zone{background:var(--s2);border:1px solid var(--line);border-radius:11px;padding:10px;min-height:104px;transition:.14s}
+  .zone.hot{border-color:var(--green);background:rgba(0,237,100,.06)}
+  .zone .zh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+  .zone .zn{font-size:12px;font-weight:700}
+  .zone .zw{font-size:10px;color:var(--sub)}
+  .zone .zw b{color:var(--mut)}
+  .zone .znote{font-size:10px;color:var(--sub);font-style:italic;margin-bottom:8px;line-height:1.3}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;min-height:26px}
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;background:var(--canvas);border:1px solid var(--line2);border-radius:9999px;padding:5px 10px;cursor:grab;user-select:none;transition:.12s}
+  .chip:active{cursor:grabbing}
+  .chip .m{width:6px;height:6px;border-radius:9999px}
+  .chip.low{border-color:var(--amber);color:var(--amber)}
+  .chip.low::after{content:'low';font-size:9px;opacity:.8}
+
+  /* right panel */
+  .panel{display:flex;flex-direction:column;gap:14px}
+  .box{background:var(--s1);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .score{background:linear-gradient(100deg,rgba(0,237,100,.10),rgba(90,169,230,.05));border:1px solid var(--line2)}
+  .score .big{font-size:34px;font-weight:800;letter-spacing:-.02em}
+  .score .big.pos{color:var(--green)} .score .big.neg{color:var(--err)} .score .big.zero{color:var(--mut)}
+  .score .cap{font-size:12px;color:var(--mut)}
+  .score .disc{font-size:10.5px;color:var(--sub);margin-top:8px;border-top:1px solid var(--line);padding-top:8px;line-height:1.4}
+  .presets{display:flex;flex-wrap:wrap;gap:8px}
+  .adv{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--s2);animation:rise .3s ease}
+  .adv .at{font-size:13px;line-height:1.4}
+  .adv .ap{font-size:10.5px;color:var(--read);margin-top:5px;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+  .adv.warn{border-color:rgba(224,162,61,.35)} .adv.warn .ap{color:var(--amber)}
+  .empty{color:var(--sub);font-size:13px;padding:8px 0}
+  @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @media(max-width:900px){main{grid-template-columns:1fr}.zones{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<header>
+  <span class="dot"></span><span class="logo">StoreOps</span><span class="tag">Store Layout Advisor</span>
+  <div class="right">
+    <button class="btn" onclick="location.href='/'">← Console</button>
+    <button class="btn" id="shareBtn" onclick="share()">Share layout ↗</button>
+  </div>
+</header>
+
+<main>
+  <!-- STORE FLOOR -->
+  <div>
+    <div class="eyebrow">Store floor · drag products between zones</div>
+    <div class="floor">
+      <div class="flowhint">→ Shoppers enter, turn right, and flow toward the back. Zone value = visibility × traffic.</div>
+      <div class="zones" id="zones"></div>
+    </div>
+  </div>
+
+  <!-- ADVICE -->
+  <div class="panel">
+    <div class="box score">
+      <div class="cap">Placement hypothesis</div>
+      <div class="big" id="scoreBig">—</div>
+      <div class="cap" id="scoreSub">vs a neutral shelf layout</div>
+      <div class="disc">A <b>simulated</b> estimate from merchandising principles (visibility, margin, impulse, cross-selling), not a guarantee of real sales. Treat it as a hypothesis to A/B test in store.</div>
+    </div>
+
+    <div class="box">
+      <div class="eyebrow" style="margin-bottom:8px">Try a layout strategy</div>
+      <div class="presets">
+        <button class="btn p" onclick="applyPreset('impulse')">Impulse-max</button>
+        <button class="btn" onclick="applyPreset('traffic')">Traffic-flow</button>
+        <button class="btn" onclick="applyPreset('balanced')">Balanced</button>
+        <button class="btn" onclick="applyPreset('flat')">Reset (flat)</button>
+      </div>
+    </div>
+
+    <div class="box">
+      <div class="eyebrow" style="margin-bottom:8px">Advisor <span id="advN" style="color:var(--mut)"></span></div>
+      <div id="advice"><div class="empty">Arrange products to get placement advice.</div></div>
+    </div>
+  </div>
+</main>
+
+<script>
+const $=s=>document.querySelector(s);
+// ── domain model ──────────────────────────────────────────────
+// zone weight = relative selling power of the location (visibility × traffic)
+const ZONES=[
+  {id:'entrance', name:'Entrance',       w:0.5,  note:'decompression zone — shoppers overlook the first few steps'},
+  {id:'power',    name:'Power Wall (R)', w:1.3,  note:'first wall after turning right — high visibility'},
+  {id:'eye',      name:'Eye-level Shelf',w:1.4,  note:'eye level is buy level'},
+  {id:'endcap',   name:'Endcap',         w:1.25, promo:true, note:'high-traffic promo cap'},
+  {id:'lower',    name:'Lower Shelf',    w:0.7,  note:'low reach, low visibility'},
+  {id:'counter',  name:'Checkout',       w:1.5,  impulse:true, note:'impulse buys while waiting to pay'},
+  {id:'back',     name:'Back Wall',      w:0.9,  destination:true, note:'destination items pull traffic to the back'},
+];
+const ZI=Object.fromEntries(ZONES.map((z,i)=>[z.id,z]));
+// product: margin 0-1, velocity 0-1 (base demand), impulse 0-1, complements, destination, stock
+const PRODUCTS=[
+  {id:'coldbrew', name:'Cold Brew',      margin:.45, velocity:.9,  impulse:.5, comp:['brownie'],   color:'#5AA9E6'},
+  {id:'oatlatte', name:'Oat Milk Latte', margin:.5,  velocity:.85, impulse:.4, comp:['croissant'], color:'#B388F0'},
+  {id:'brownie',  name:'Brownie',        margin:.65, velocity:.6,  impulse:.8, comp:['coldbrew'],  low:true, color:'#E0A23D'},
+  {id:'croissant',name:'Croissant',      margin:.55, velocity:.55, impulse:.6, comp:['oatlatte'],  color:'#E069A8'},
+  {id:'cookie',   name:'Cookie',         margin:.7,  velocity:.5,  impulse:.85,comp:[],            color:'#00ED64'},
+  {id:'water',    name:'Bottled Water',  margin:.2,  velocity:.95, impulse:.2, comp:[], destination:true, color:'#9DAAA6'},
+  {id:'giftcard', name:'Gift Card',      margin:.9,  velocity:.2,  impulse:.7, comp:[],            color:'#F0664F'},
+];
+const PI=Object.fromEntries(PRODUCTS.map(p=>[p.id,p]));
+
+// state: productId -> zoneId
+let place={};
+function defaultFlat(){ const o={}; PRODUCTS.forEach(p=>o[p.id]='lower'); return o; }
+
+// ── scoring (transparent heuristic) ───────────────────────────
+function productScore(p,zid){
+  const z=ZI[zid]; if(!z) return 0;
+  let s = p.velocity*100 * z.w * (1 + p.margin*0.4);
+  if(z.impulse) s *= (1 + p.impulse*0.5);      // impulse items shine at checkout
+  if(z.promo)   s *= (1 + p.impulse*0.25);
+  return s;
+}
+function totalScore(pl){
+  let s=0;
+  for(const p of PRODUCTS) s+=productScore(p,pl[p.id]);
+  // cross-merchandising: complements sharing a zone
+  const seen=new Set();
+  for(const p of PRODUCTS) for(const c of p.comp){
+    const key=[p.id,c].sort().join('|');
+    if(!seen.has(key) && pl[p.id]===pl[c]){ s+=10; seen.add(key); }
+  }
+  // destination pull: a destination staple at the back wall pulls traffic (store-wide lift)
+  for(const p of PRODUCTS) if(p.destination && pl[p.id]==='back') s*=1.06;
+  return s;
+}
+const BASELINE=totalScore(defaultFlat());
+
+// ── advice rules (grounded in retail merchandising principles) ─
+function advise(pl){
+  const out=[];
+  const zoneOf=id=>pl[id];
+  // 1. high-margin impulse items → checkout
+  for(const p of PRODUCTS){
+    if(p.impulse>=0.7 && p.margin>=0.6 && zoneOf(p.id)!=='counter' && zoneOf(p.id)!=='endcap'){
+      out.push({t:`Move <b>${p.name}</b> to the Checkout — it's high-margin and impulse-friendly.`, p:'Impulse principle', warn:false});
+    }
+  }
+  // 2. best-margin seller → eye level
+  const eyeStar=[...PRODUCTS].filter(p=>p.velocity>=.6).sort((a,b)=>b.margin-a.margin)[0];
+  if(eyeStar && zoneOf(eyeStar.id)!=='eye'){
+    out.push({t:`Put <b>${eyeStar.name}</b> at Eye-level — your best-margin steady seller belongs where the eye lands.`, p:'Eye level is buy level'});
+  }
+  // 3. destination staple → back wall
+  for(const p of PRODUCTS) if(p.destination && zoneOf(p.id)!=='back'){
+    out.push({t:`Keep <b>${p.name}</b> at the Back Wall — people seek it out, so it pulls traffic past your impulse zones.`, p:'Destination pull'});
+  }
+  // 4. cross-merchandising: complements not together
+  const seen=new Set();
+  for(const p of PRODUCTS) for(const c of p.comp){
+    const key=[p.id,c].sort().join('|');
+    if(!seen.has(key)){ seen.add(key);
+      if(zoneOf(p.id)!==zoneOf(c)) out.push({t:`Place <b>${p.name}</b> next to <b>${PI[c].name}</b> — they're often bought together.`, p:'Cross-merchandising'});
+    }
+  }
+  // 5. anything valuable stranded in the entrance
+  for(const p of PRODUCTS) if(zoneOf(p.id)==='entrance' && (p.margin>=.5||p.velocity>=.7)){
+    out.push({t:`Move <b>${p.name}</b> out of the Entrance — the decompression zone gets overlooked.`, p:'Decompression zone'});
+  }
+  // 6. low stock in a promo spot → restock first
+  for(const p of PRODUCTS){ const z=ZI[zoneOf(p.id)];
+    if(p.low && z && (z.promo||z.impulse||z.w>=1.3))
+      out.push({t:`<b>${p.name}</b> is low on stock — restock before featuring it, or you'll promote an empty shelf.`, p:'Stock-aware', warn:true});
+  }
+  return out;
+}
+
+// ── presets ───────────────────────────────────────────────────
+function applyPreset(kind){
+  const o=defaultFlat();
+  if(kind==='flat'){ place=o; return render(); }
+  if(kind==='impulse'){ Object.assign(o,{brownie:'counter',cookie:'counter',giftcard:'counter',coldbrew:'eye',oatlatte:'eye',croissant:'endcap',water:'back'}); }
+  if(kind==='traffic'){ Object.assign(o,{water:'back',coldbrew:'power',oatlatte:'power',brownie:'counter',cookie:'endcap',croissant:'eye',giftcard:'counter'}); }
+  if(kind==='balanced'){ Object.assign(o,{coldbrew:'eye',brownie:'eye',oatlatte:'power',croissant:'power',cookie:'endcap',giftcard:'counter',water:'back'}); }
+  place=o; render();
+}
+
+// ── render + drag/drop ────────────────────────────────────────
+function render(){
+  const wrap=$('#zones'); wrap.innerHTML='';
+  for(const z of ZONES){
+    const el=document.createElement('div'); el.className='zone'; el.dataset.zone=z.id;
+    const kids=PRODUCTS.filter(p=>place[p.id]===z.id).map(p=>
+      `<span class="chip ${p.low?'low':''}" draggable="true" data-p="${p.id}"><span class="m" style="background:${p.color}"></span>${p.name}</span>`).join('');
+    el.innerHTML=`<div class="zh"><span class="zn">${z.name}</span><span class="zw">value <b>${z.w.toFixed(2)}×</b></span></div>
+      <div class="znote">${z.note}</div><div class="chips">${kids||'<span class="empty" style="font-size:11px">drop here</span>'}</div>`;
+    // drop
+    el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('hot')});
+    el.addEventListener('dragleave',()=>el.classList.remove('hot'));
+    el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('hot');
+      const pid=e.dataTransfer.getData('text/plain'); if(pid&&place[pid]!==z.id){ place[pid]=z.id; render(); }});
+    wrap.appendChild(el);
+  }
+  // drag start on chips
+  wrap.querySelectorAll('.chip').forEach(c=>c.addEventListener('dragstart',e=>e.dataTransfer.setData('text/plain',c.dataset.p)));
+  scoreAndAdvise();
+  saveURL();
+}
+function scoreAndAdvise(){
+  const cur=totalScore(place);
+  const up=Math.round((cur-BASELINE)/BASELINE*100);
+  const big=$('#scoreBig'); big.textContent=(up>0?'+':'')+up+'%';
+  big.className='big '+(up>0?'pos':up<0?'neg':'zero');
+  $('#scoreSub').textContent = up>0 ? 'estimated opportunity vs a flat shelf' : up<0 ? 'below the flat-shelf baseline' : 'same as a flat shelf';
+  const adv=advise(place);
+  $('#advN').textContent=adv.length?`· ${adv.length}`:'';
+  $('#advice').innerHTML = adv.length ? adv.map(a=>`<div class="adv ${a.warn?'warn':''}"><div class="at">${a.t}</div><div class="ap">${a.p}</div></div>`).join('')
+    : '<div class="empty">Looks well-placed. No suggestions right now ✓</div>';
+}
+
+// ── URL state (shareable) ─────────────────────────────────────
+function saveURL(){
+  const code=PRODUCTS.map(p=>ZONES.findIndex(z=>z.id===place[p.id])).join('');
+  history.replaceState(null,'','#'+code);
+}
+function loadURL(){
+  const h=(location.hash||'').replace('#','');
+  if(h.length===PRODUCTS.length && /^[0-6]+$/.test(h)){
+    const o={}; PRODUCTS.forEach((p,i)=>{ const zi=+h[i]; o[p.id]=(ZONES[zi]||ZONES[4]).id; }); place=o; return true;
+  }
+  return false;
+}
+function share(){
+  navigator.clipboard?.writeText(location.href).then(()=>{
+    const b=$('#shareBtn'); const t=b.textContent; b.textContent='Copied ✓'; setTimeout(()=>b.textContent=t,1400);
+  });
+}
+
+// init
+if(!loadURL()) applyPreset('balanced'); else render();
+</script>
+</body>
+</html>
