@@ -18,6 +18,7 @@ import json
 
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import mockdata as mock
@@ -206,6 +207,8 @@ def ok(data):
 
 
 _STATIC = os.path.join(os.path.dirname(__file__), "static")
+# serve /static/* (vendored JS like Three.js) so pages don't depend on a CDN
+app.mount("/static", StaticFiles(directory=_STATIC), name="static")
 
 
 # 정적 HTML 캐시 금지 — 심사위원/팀이 늘 최신 UI(영문 등)를 받게. No HTML caching so everyone gets the latest UI.
@@ -228,6 +231,12 @@ def counter():
 def layout():
     """Store Layout Advisor — merchandising / planogram placement tool. Runs standalone (no DB)."""
     return FileResponse(os.path.join(_STATIC, "layout.html"), headers=_NO_CACHE)
+
+
+@app.get("/layout3d", include_in_schema=False)
+def layout3d():
+    """3D Store Layout Advisor — Three.js merchandising simulator. Runs standalone (no DB)."""
+    return FileResponse(os.path.join(_STATIC, "layout3d.html"), headers=_NO_CACHE)
 
 
 @app.get("/health", tags=["meta"])

@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>StoreOps · 3D Store Layout Advisor</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{--canvas:#0A0F0E;--s1:#141A19;--s2:#1E2625;--line:rgba(180,190,185,.12);--line2:rgba(180,190,185,.22);
+    --green:#00ED64;--amber:#E0A23D;--ink:#F2F5F3;--mut:#9DAAA6;--sub:#66726E;--read:#5AA9E6;--err:#F0664F;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--ink);font-family:Inter,system-ui,sans-serif;font-size:14px;overflow:hidden}
+  header{display:flex;align-items:center;gap:12px;padding:12px 22px;border-bottom:1px solid var(--line);position:relative;z-index:6;background:var(--canvas)}
+  header .dot{width:7px;height:7px;border-radius:9999px;background:var(--green);box-shadow:0 0 8px var(--green)}
+  header .logo{font-weight:700;font-size:15px} header .tag{font-size:11px;color:var(--mut);border:1px solid var(--line2);border-radius:9999px;padding:3px 10px}
+  header .right{margin-left:auto;display:flex;gap:8px}
+  .btn{background:transparent;border:1px solid var(--line2);color:var(--mut);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:.14s}
+  .btn:hover{border-color:var(--green);color:var(--ink)} .btn.p{background:var(--green);color:#03130A;border-color:var(--green)}
+  .wrap{display:flex;height:calc(100vh - 49px)}
+  #stage{flex:1;position:relative;overflow:hidden}
+  #c{display:block;width:100%;height:100%}
+  .hint{position:absolute;left:14px;bottom:12px;font-size:11.5px;color:var(--sub);background:rgba(10,15,14,.7);border:1px solid var(--line);border-radius:8px;padding:7px 11px;z-index:3;max-width:280px;line-height:1.4}
+  .zlabel{position:absolute;transform:translate(-50%,-50%);pointer-events:none;text-align:center;z-index:2}
+  .zlabel .n{font-size:11px;font-weight:700;color:var(--ink);text-shadow:0 1px 3px #000}
+  .zlabel .w{font-size:9.5px;color:var(--green);text-shadow:0 1px 3px #000}
+  /* right panel */
+  .side{width:340px;border-left:1px solid var(--line);background:var(--s1);overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
+  .eyebrow{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--sub)}
+  .box{background:var(--s2);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .score{background:linear-gradient(100deg,rgba(0,237,100,.10),rgba(90,169,230,.05));border:1px solid var(--line2)}
+  .score .big{font-size:32px;font-weight:800;letter-spacing:-.02em} .score .big.pos{color:var(--green)} .score .big.neg{color:var(--err)} .score .big.zero{color:var(--mut)}
+  .score .cap{font-size:12px;color:var(--mut)} .score .disc{font-size:10px;color:var(--sub);margin-top:7px;border-top:1px solid var(--line);padding-top:7px;line-height:1.4}
+  .presets{display:flex;flex-wrap:wrap;gap:7px}
+  .sel{font-size:12px;color:var(--mut)} .sel b{color:var(--green)}
+  .adv{border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:7px;background:var(--s1)}
+  .adv .at{font-size:12.5px;line-height:1.4} .adv .ap{font-size:10px;color:var(--read);margin-top:4px;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+  .adv.warn{border-color:rgba(224,162,61,.35)} .adv.warn .ap{color:var(--amber)}
+  .empty{color:var(--sub);font-size:12px}
+  @media(max-width:820px){.side{width:100%;position:absolute;height:45%;bottom:0;border-left:0;border-top:1px solid var(--line)}.wrap{flex-direction:column}}
+</style>
+<script type="importmap">
+{"imports":{"three":"/static/vendor/three.module.js","OrbitControls":"/static/vendor/OrbitControls.js"}}
+</script>
+</head>
+<body>
+<header>
+  <span class="dot"></span><span class="logo">StoreOps</span><span class="tag">3D Store Layout Advisor</span>
+  <div class="right">
+    <button class="btn" onclick="location.href='/layout'">2D view</button>
+    <button class="btn" onclick="location.href='/'">← Console</button>
+    <button class="btn" id="shareBtn" onclick="share()">Share ↗</button>
+  </div>
+</header>
+<div class="wrap">
+  <div id="stage">
+    <canvas id="c"></canvas>
+    <div id="labels"></div>
+    <div class="hint">Drag to orbit · scroll to zoom · <b>click a product</b> then <b>click a zone</b> to move it.</div>
+  </div>
+  <div class="side">
+    <div class="box score">
+      <div class="cap">Placement hypothesis</div>
+      <div class="big" id="scoreBig">—</div>
+      <div class="cap" id="scoreSub">vs a neutral shelf layout</div>
+      <div class="disc"><b>Simulated</b> estimate from merchandising principles, not guaranteed sales. A hypothesis to A/B test in store.</div>
+    </div>
+    <div class="box">
+      <div class="eyebrow" style="margin-bottom:8px">Layout strategy</div>
+      <div class="presets">
+        <button class="btn p" onclick="applyPreset('impulse')">Impulse-max</button>
+        <button class="btn" onclick="applyPreset('traffic')">Traffic-flow</button>
+        <button class="btn" onclick="applyPreset('balanced')">Balanced</button>
+        <button class="btn" onclick="applyPreset('flat')">Reset</button>
+      </div>
+      <div class="sel" id="sel" style="margin-top:10px">Selected: <b>none</b></div>
+    </div>
+    <div class="box">
+      <div class="eyebrow" style="margin-bottom:8px">Advisor <span id="advN" style="color:var(--mut)"></span></div>
+      <div id="advice"><div class="empty">Move products to get advice.</div></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'OrbitControls';
+
+// ── domain model (shared with 2D) ─────────────────────────────
+const ZONES=[
+  {id:'entrance',name:'Entrance',      w:0.5, x:0,  z:9,  note:'decompression zone'},
+  {id:'power',   name:'Power Wall (R)',w:1.3, x:7,  z:4,  note:'right wall, high visibility'},
+  {id:'eye',     name:'Eye-level',     w:1.4, x:0,  z:2,  note:'eye level is buy level'},
+  {id:'endcap',  name:'Endcap',        w:1.25,x:-7, z:4,  promo:true, note:'promo cap'},
+  {id:'lower',   name:'Lower Shelf',   w:0.7, x:0,  z:5.5,note:'low visibility'},
+  {id:'counter', name:'Checkout',      w:1.5, x:7,  z:9,  impulse:true, note:'impulse at pay'},
+  {id:'back',    name:'Back Wall',     w:0.9, x:0,  z:-6, destination:true, note:'destination pull'},
+];
+const ZI=Object.fromEntries(ZONES.map(z=>[z.id,z]));
+const PRODUCTS=[
+  {id:'coldbrew', name:'Cold Brew',      margin:.45,velocity:.9, impulse:.5, comp:['brownie'],   color:0x5AA9E6},
+  {id:'oatlatte', name:'Oat Milk Latte', margin:.5, velocity:.85,impulse:.4, comp:['croissant'], color:0xB388F0},
+  {id:'brownie',  name:'Brownie',        margin:.65,velocity:.6, impulse:.8, comp:['coldbrew'],  low:true, color:0xE0A23D},
+  {id:'croissant',name:'Croissant',      margin:.55,velocity:.55,impulse:.6, comp:['oatlatte'],  color:0xE069A8},
+  {id:'cookie',   name:'Cookie',         margin:.7, velocity:.5, impulse:.85,comp:[],            color:0x00ED64},
+  {id:'water',    name:'Bottled Water',  margin:.2, velocity:.95,impulse:.2, comp:[], destination:true, color:0x9DAAA6},
+  {id:'giftcard', name:'Gift Card',      margin:.9, velocity:.2, impulse:.7, comp:[],            color:0xF0664F},
+];
+const PI=Object.fromEntries(PRODUCTS.map(p=>[p.id,p]));
+let place={};
+const flat=()=>Object.fromEntries(PRODUCTS.map(p=>[p.id,'lower']));
+
+function pScore(p,zid){const z=ZI[zid];if(!z)return 0;let s=p.velocity*100*z.w*(1+p.margin*0.4);if(z.impulse)s*=(1+p.impulse*0.5);if(z.promo)s*=(1+p.impulse*0.25);return s;}
+function total(pl){let s=0;for(const p of PRODUCTS)s+=pScore(p,pl[p.id]);const seen=new Set();for(const p of PRODUCTS)for(const c of p.comp){const k=[p.id,c].sort().join('|');if(!seen.has(k)&&pl[p.id]===pl[c]){s+=10;seen.add(k);}}for(const p of PRODUCTS)if(p.destination&&pl[p.id]==='back')s*=1.06;return s;}
+const BASE=total(flat());
+function advise(pl){const o=[];const z=id=>pl[id];
+  for(const p of PRODUCTS)if(p.impulse>=.7&&p.margin>=.6&&z(p.id)!=='counter'&&z(p.id)!=='endcap')o.push({t:`Move <b>${p.name}</b> to Checkout — high-margin impulse buy.`,p:'Impulse principle'});
+  const star=[...PRODUCTS].filter(p=>p.velocity>=.6).sort((a,b)=>b.margin-a.margin)[0];
+  if(star&&z(star.id)!=='eye')o.push({t:`Put <b>${star.name}</b> at Eye-level — best-margin steady seller.`,p:'Eye level is buy level'});
+  for(const p of PRODUCTS)if(p.destination&&z(p.id)!=='back')o.push({t:`Keep <b>${p.name}</b> at the Back Wall — pulls traffic past impulse zones.`,p:'Destination pull'});
+  const seen=new Set();for(const p of PRODUCTS)for(const c of p.comp){const k=[p.id,c].sort().join('|');if(!seen.has(k)){seen.add(k);if(z(p.id)!==z(c))o.push({t:`Place <b>${p.name}</b> next to <b>${PI[c].name}</b> — bought together.`,p:'Cross-merchandising'});}}
+  for(const p of PRODUCTS)if(z(p.id)==='entrance'&&(p.margin>=.5||p.velocity>=.7))o.push({t:`Move <b>${p.name}</b> out of the Entrance — decompression zone gets overlooked.`,p:'Decompression zone'});
+  for(const p of PRODUCTS){const zz=ZI[z(p.id)];if(p.low&&zz&&(zz.promo||zz.impulse||zz.w>=1.3))o.push({t:`<b>${p.name}</b> is low on stock — restock before featuring.`,p:'Stock-aware',warn:true});}
+  return o;}
+function applyPreset(k){const o=flat();
+  if(k==='impulse')Object.assign(o,{brownie:'counter',cookie:'counter',giftcard:'counter',coldbrew:'eye',oatlatte:'eye',croissant:'endcap',water:'back'});
+  if(k==='traffic')Object.assign(o,{water:'back',coldbrew:'power',oatlatte:'power',brownie:'counter',cookie:'endcap',croissant:'eye',giftcard:'counter'});
+  if(k==='balanced')Object.assign(o,{coldbrew:'eye',brownie:'eye',oatlatte:'power',croissant:'power',cookie:'endcap',giftcard:'counter',water:'back'});
+  place=o;rebuild();sync();}
+window.applyPreset=applyPreset;
+
+// ── three.js scene ────────────────────────────────────────────
+const canvas=document.getElementById('c'), stage=document.getElementById('stage');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x0A0F0E);
+const camera=new THREE.PerspectiveCamera(45,1,0.1,200); camera.position.set(2,15,20);
+const controls=new OrbitControls(camera,canvas); controls.target.set(0,1,2); controls.enableDamping=true; controls.maxPolarAngle=Math.PI*0.49;
+scene.add(new THREE.AmbientLight(0xffffff,0.55));
+const dir=new THREE.DirectionalLight(0xffffff,0.9); dir.position.set(8,16,10); scene.add(dir);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(46,46),new THREE.MeshStandardMaterial({color:0x0f1615,roughness:1}));
+floor.rotation.x=-Math.PI/2; scene.add(floor);
+const grid=new THREE.GridHelper(46,23,0x1E2625,0x141A19); grid.position.y=0.01; scene.add(grid);
+
+// zone platforms
+const zoneMeshes={}; const labelsLayer=document.getElementById('labels'); const labelEls={};
+for(const z of ZONES){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(4,0.4,4),new THREE.MeshStandardMaterial({color:0x1E2625,roughness:.9}));
+  m.position.set(z.x,0.2,z.z); m.userData={type:'zone',id:z.id}; scene.add(m); zoneMeshes[z.id]=m;
+  const edge=new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),new THREE.LineBasicMaterial({color:0x2c3a38})); edge.position.copy(m.position); scene.add(edge);
+  const el=document.createElement('div'); el.className='zlabel'; el.innerHTML=`<div class="n">${z.name}</div><div class="w">${z.w.toFixed(2)}×</div>`;
+  labelsLayer.appendChild(el); labelEls[z.id]=el;
+}
+// entrance arrow (flow direction)
+const arrowMat=new THREE.MeshStandardMaterial({color:0x00ED64,transparent:true,opacity:.5});
+const arrow=new THREE.Mesh(new THREE.ConeGeometry(0.5,1.2,4),arrowMat); arrow.position.set(0,0.6,12); arrow.rotation.x=Math.PI; scene.add(arrow);
+
+// product boxes
+let prodMeshes=[]; let selected=null;
+function rebuild(){
+  prodMeshes.forEach(m=>{scene.remove(m); m.geometry.dispose(); m.material.dispose();}); prodMeshes=[];
+  const byZone={}; for(const p of PRODUCTS){(byZone[place[p.id]]=byZone[place[p.id]]||[]).push(p);}
+  for(const zid in byZone){ const z=ZI[zid]; const arr=byZone[zid];
+    arr.forEach((p,i)=>{
+      const col=arr.length; const cx=(i%3-1)*1.15, cz=(Math.floor(i/3)-0.5)*1.15;
+      const mat=new THREE.MeshStandardMaterial({color:p.color,roughness:.5,emissive:0x000000});
+      const box=new THREE.Mesh(new THREE.BoxGeometry(1,1,1),mat);
+      box.position.set(z.x+cx,0.9,z.z+cz); box.userData={type:'product',id:p.id};
+      scene.add(box); prodMeshes.push(box);
+    });
+  }
+  applySelectHighlight();
+}
+function applySelectHighlight(){ prodMeshes.forEach(m=>m.material.emissive.setHex(m.userData.id===selected?0x224422:0x000000)); prodMeshes.forEach(m=>m.scale.setScalar(m.userData.id===selected?1.15:1)); }
+
+// raycast picking
+const ray=new THREE.Raycaster(), mouse=new THREE.Vector2(); let downXY=null;
+canvas.addEventListener('pointerdown',e=>downXY=[e.clientX,e.clientY]);
+canvas.addEventListener('pointerup',e=>{
+  if(!downXY||Math.hypot(e.clientX-downXY[0],e.clientY-downXY[1])>6) return; // ignore drags (orbit)
+  const r=canvas.getBoundingClientRect();
+  mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+  ray.setFromCamera(mouse,camera);
+  const hit=ray.intersectObjects([...prodMeshes,...Object.values(zoneMeshes)],false)[0];
+  if(!hit) return;
+  const ud=hit.object.userData;
+  if(ud.type==='product'){ selected=ud.id; applySelectHighlight(); syncSel(); }
+  else if(ud.type==='zone' && selected){ if(place[selected]!==ud.id){ place[selected]=ud.id; rebuild(); sync(); } }
+});
+
+// ── HUD sync ──────────────────────────────────────────────────
+const $=s=>document.querySelector(s);
+function sync(){
+  const up=Math.round((total(place)-BASE)/BASE*100);
+  const b=$('#scoreBig'); b.textContent=(up>0?'+':'')+up+'%'; b.className='big '+(up>0?'pos':up<0?'neg':'zero');
+  $('#scoreSub').textContent = up>0?'estimated opportunity vs a flat shelf':up<0?'below the flat-shelf baseline':'same as a flat shelf';
+  const a=advise(place); $('#advN').textContent=a.length?`· ${a.length}`:'';
+  $('#advice').innerHTML=a.length?a.map(x=>`<div class="adv ${x.warn?'warn':''}"><div class="at">${x.t}</div><div class="ap">${x.p}</div></div>`).join(''):'<div class="empty">Well-placed. No suggestions ✓</div>';
+  const code=PRODUCTS.map(p=>ZONES.findIndex(z=>z.id===place[p.id])).join(''); history.replaceState(null,'','#'+code);
+}
+function syncSel(){ $('#sel').innerHTML='Selected: <b>'+(selected?PI[selected].name:'none')+'</b>'+(selected?' — now click a zone':''); }
+window.share=()=>navigator.clipboard?.writeText(location.href).then(()=>{const b=$('#shareBtn');const t=b.textContent;b.textContent='Copied ✓';setTimeout(()=>b.textContent=t,1400);});
+
+// ── resize + render loop ──────────────────────────────────────
+function resize(){ const w=stage.clientWidth,h=stage.clientHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
+addEventListener('resize',resize); resize();
+const v=new THREE.Vector3();
+function updateLabels(){ for(const z of ZONES){ v.set(z.x,1.6,z.z).project(camera);
+  const el=labelEls[z.id]; const vis=v.z<1;
+  el.style.display=vis?'block':'none';
+  el.style.left=((v.x*0.5+0.5)*stage.clientWidth)+'px'; el.style.top=((-v.y*0.5+0.5)*stage.clientHeight)+'px'; } }
+function loop(){ requestAnimationFrame(loop); controls.update(); updateLabels(); renderer.render(scene,camera); }
+loop();
+
+// init
+(function initState(){ const h=(location.hash||'').replace('#','');
+  if(h.length===PRODUCTS.length&&/^[0-6]+$/.test(h)){ const o={}; PRODUCTS.forEach((p,i)=>o[p.id]=(ZONES[+h[i]]||ZONES[4]).id); place=o; rebuild(); sync(); }
+  else applyPreset('balanced');
+})();
+</script>
+</body>
+</html>
