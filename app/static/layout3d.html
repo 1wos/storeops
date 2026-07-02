@@ -36,7 +36,13 @@
   .adv .at{font-size:12.5px;line-height:1.4} .adv .ap{font-size:10px;color:var(--read);margin-top:4px;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
   .adv.warn{border-color:rgba(224,162,61,.35)} .adv.warn .ap{color:var(--amber)}
   .empty{color:var(--sub);font-size:12px}
-  @media(max-width:820px){.side{width:100%;position:absolute;height:45%;bottom:0;border-left:0;border-top:1px solid var(--line)}.wrap{flex-direction:column}}
+  /* narrow: stack (never overlay the 3D), and allow the page to scroll */
+  @media(max-width:820px){
+    body{overflow:auto}
+    .wrap{flex-direction:column;height:auto}
+    #stage{height:55vh;min-height:320px;flex:none}
+    .side{width:100%;height:auto;position:static;border-left:0;border-top:1px solid var(--line)}
+  }
 </style>
 <script type="importmap">
 {"imports":{"three":"/static/vendor/three.module.js","OrbitControls":"/static/vendor/OrbitControls.js"}}
@@ -253,9 +259,10 @@ function resize(){ const w=stage.clientWidth,h=stage.clientHeight; renderer.setS
 addEventListener('resize',resize); resize();
 const v=new THREE.Vector3();
 function updateLabels(){ for(const z of ZONES){ v.set(z.x,1.6,z.z).project(camera);
-  const el=labelEls[z.id]; const vis=v.z<1;
+  const el=labelEls[z.id]; const nx=v.x*0.5+0.5, ny=-v.y*0.5+0.5;
+  const vis = v.z<1 && nx>-0.02 && nx<1.02 && ny>-0.02 && ny<1.02;   // hide labels projected outside the stage
   el.style.display=vis?'block':'none';
-  el.style.left=((v.x*0.5+0.5)*stage.clientWidth)+'px'; el.style.top=((-v.y*0.5+0.5)*stage.clientHeight)+'px'; } }
+  el.style.left=(nx*stage.clientWidth)+'px'; el.style.top=(ny*stage.clientHeight)+'px'; } }
 function loop(){ requestAnimationFrame(loop); controls.update(); updateLabels(); renderer.render(scene,camera); }
 loop();
 
