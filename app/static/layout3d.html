@@ -59,20 +59,22 @@
   </div>
   <div class="side">
     <div class="box score">
-      <div class="cap">Placement hypothesis</div>
+      <div class="cap">Merchandising score</div>
       <div class="big" id="scoreBig">—</div>
-      <div class="cap" id="scoreSub">vs a neutral shelf layout</div>
-      <div class="disc"><b>Simulated</b> estimate from merchandising principles, not guaranteed sales. A hypothesis to A/B test in store.</div>
+      <div class="cap" id="scoreSub">vs a flat shelf</div>
+      <div class="disc"><b>Principle-alignment</b> score (eye-level, adjacency, impulse, stock) — <b>not a sales prediction</b>. Use it to compare layouts and choose what to A/B test in store.</div>
     </div>
     <div class="box">
-      <div class="eyebrow" style="margin-bottom:8px">Layout strategy</div>
+      <div class="eyebrow" style="margin-bottom:8px">Layout</div>
       <div class="presets">
-        <button class="btn p" onclick="applyPreset('impulse')">Impulse-max</button>
+        <button class="btn p" onclick="optimizeLayout()">✨ Optimize</button>
+        <button class="btn" onclick="applyPreset('impulse')">Impulse-max</button>
         <button class="btn" onclick="applyPreset('traffic')">Traffic-flow</button>
         <button class="btn" onclick="applyPreset('balanced')">Balanced</button>
         <button class="btn" onclick="applyPreset('flat')">Reset</button>
       </div>
-      <div class="sel" id="sel" style="margin-top:10px">Selected: <b>none</b></div>
+      <div class="sel" id="optsum" style="margin-top:10px;color:var(--green)"></div>
+      <div class="sel" id="sel" style="margin-top:6px">Selected: <b>none</b></div>
     </div>
     <div class="box">
       <div class="eyebrow" style="margin-bottom:8px">Advisor <span id="advN" style="color:var(--mut)"></span></div>
@@ -86,14 +88,15 @@ import * as THREE from 'three';
 import {OrbitControls} from 'OrbitControls';
 
 // ── domain model (shared with 2D) ─────────────────────────────
+// w = selling power of the location (visibility × traffic) · cap = how many products the zone holds
 const ZONES=[
-  {id:'entrance',name:'Entrance',      w:0.5, x:0,  z:9,  note:'decompression zone'},
-  {id:'power',   name:'Power Wall (R)',w:1.3, x:7,  z:4,  note:'right wall, high visibility'},
-  {id:'eye',     name:'Eye-level',     w:1.4, x:0,  z:2,  note:'eye level is buy level'},
-  {id:'endcap',  name:'Endcap',        w:1.25,x:-7, z:4,  promo:true, note:'promo cap'},
-  {id:'lower',   name:'Lower Shelf',   w:0.7, x:0,  z:5.5,note:'low visibility'},
-  {id:'counter', name:'Checkout',      w:1.5, x:7,  z:9,  impulse:true, note:'impulse at pay'},
-  {id:'back',    name:'Back Wall',     w:0.9, x:0,  z:-6, destination:true, note:'destination pull'},
+  {id:'entrance',name:'Entrance',      w:0.5, cap:1, x:0,  z:9,  note:'decompression zone'},
+  {id:'power',   name:'Power Wall (R)',w:1.3, cap:2, x:7,  z:4,  note:'right wall, high visibility'},
+  {id:'eye',     name:'Eye-level',     w:1.4, cap:2, x:0,  z:2,  note:'eye level is buy level'},
+  {id:'endcap',  name:'Endcap',        w:1.25,cap:1, x:-7, z:4,  promo:true, note:'promo cap'},
+  {id:'lower',   name:'Lower Shelf',   w:0.7, cap:3, x:0,  z:5.5,note:'low visibility'},
+  {id:'counter', name:'Checkout',      w:1.5, cap:2, x:7,  z:9,  impulse:true, note:'impulse at pay'},
+  {id:'back',    name:'Back Wall',     w:0.9, cap:2, x:0,  z:-6, destination:true, note:'destination pull'},
 ];
 const ZI=Object.fromEntries(ZONES.map(z=>[z.id,z]));
 const PRODUCTS=[
@@ -110,23 +113,68 @@ let place={};
 const flat=()=>Object.fromEntries(PRODUCTS.map(p=>[p.id,'lower']));
 
 function pScore(p,zid){const z=ZI[zid];if(!z)return 0;let s=p.velocity*100*z.w*(1+p.margin*0.4);if(z.impulse)s*=(1+p.impulse*0.5);if(z.promo)s*=(1+p.impulse*0.25);return s;}
-function total(pl){let s=0;for(const p of PRODUCTS)s+=pScore(p,pl[p.id]);const seen=new Set();for(const p of PRODUCTS)for(const c of p.comp){const k=[p.id,c].sort().join('|');if(!seen.has(k)&&pl[p.id]===pl[c]){s+=10;seen.add(k);}}for(const p of PRODUCTS)if(p.destination&&pl[p.id]==='back')s*=1.06;return s;}
+function total(pl){let s=0;for(const p of PRODUCTS)s+=pScore(p,pl[p.id]);const seen=new Set();for(const p of PRODUCTS)for(const c of p.comp){const k=[p.id,c].sort().join('|');if(!seen.has(k)&&pl[p.id]===pl[c]){s+=10;seen.add(k);}}for(const p of PRODUCTS)if(p.destination&&pl[p.id]==='back')s*=1.06;for(const p of PRODUCTS){const z=ZI[pl[p.id]];if(p.low&&z&&(z.promo||z.impulse||z.w>=1.3))s-=50;}return s;}
 const BASE=total(flat());
-function advise(pl){const o=[];const z=id=>pl[id];
-  for(const p of PRODUCTS)if(p.impulse>=.7&&p.margin>=.6&&z(p.id)!=='counter'&&z(p.id)!=='endcap')o.push({t:`Move <b>${p.name}</b> to Checkout — high-margin impulse buy.`,p:'Impulse principle'});
-  const star=[...PRODUCTS].filter(p=>p.velocity>=.6).sort((a,b)=>b.margin-a.margin)[0];
-  if(star&&z(star.id)!=='eye')o.push({t:`Put <b>${star.name}</b> at Eye-level — best-margin steady seller.`,p:'Eye level is buy level'});
-  for(const p of PRODUCTS)if(p.destination&&z(p.id)!=='back')o.push({t:`Keep <b>${p.name}</b> at the Back Wall — pulls traffic past impulse zones.`,p:'Destination pull'});
-  const seen=new Set();for(const p of PRODUCTS)for(const c of p.comp){const k=[p.id,c].sort().join('|');if(!seen.has(k)){seen.add(k);if(z(p.id)!==z(c))o.push({t:`Place <b>${p.name}</b> next to <b>${PI[c].name}</b> — bought together.`,p:'Cross-merchandising'});}}
-  for(const p of PRODUCTS)if(z(p.id)==='entrance'&&(p.margin>=.5||p.velocity>=.7))o.push({t:`Move <b>${p.name}</b> out of the Entrance — decompression zone gets overlooked.`,p:'Decompression zone'});
-  for(const p of PRODUCTS){const zz=ZI[z(p.id)];if(p.low&&zz&&(zz.promo||zz.impulse||zz.w>=1.3))o.push({t:`<b>${p.name}</b> is low on stock — restock before featuring.`,p:'Stock-aware',warn:true});}
-  return o;}
+
+// ── optimizer: find product→zone assignment maximising the score, respecting zone capacity ──
+function optimize(){
+  const cap=Object.fromEntries(ZONES.map(z=>[z.id,z.cap])), pids=PRODUCTS.map(p=>p.id);
+  const feasible=pl=>{const c={};for(const p of pids)c[pl[p]]=(c[pl[p]]||0)+1;return ZONES.every(z=>(c[z.id]||0)<=cap[z.id]);};
+  function randStart(){const slots=[];ZONES.forEach(z=>{for(let i=0;i<cap[z.id];i++)slots.push(z.id);});for(let i=slots.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[slots[i],slots[j]]=[slots[j],slots[i]];}const o={};pids.forEach((p,i)=>o[p]=slots[i]);return o;}
+  function climb(start){let cur={...start},best=total(cur),imp=true;while(imp){imp=false;
+    for(const p of pids)for(const z of ZONES){if(cur[p]===z.id)continue;const cand={...cur,[p]:z.id};if(feasible(cand)){const s=total(cand);if(s>best+1e-6){cur=cand;best=s;imp=true;}}}
+    for(let i=0;i<pids.length;i++)for(let j=i+1;j<pids.length;j++){const a=pids[i],b=pids[j];if(cur[a]===cur[b])continue;const cand={...cur,[a]:cur[b],[b]:cur[a]};const s=total(cand);if(s>best+1e-6){cur=cand;best=s;imp=true;}}}
+    return{pl:cur,score:best};}
+  let bs=climb(randStart());for(let r=0;r<60;r++){const s=climb(randStart());if(s.score>bs.score)bs=s;}return bs.pl;
+}
+
+// advice = the top feasible moves that most improve the SAME score the optimizer maximises,
+// so suggestions never contradict Optimize (after Optimize, no improving move remains).
+function explain(p,zid,pl){
+  const z=ZI[zid], compHere=p.comp.find(c=>pl[c]===zid);
+  if(compHere) return {r:`pair it with ${PI[compHere].name} — often bought together`, pr:'Cross-merchandising'};
+  if(z.impulse)  return {r:'a high-margin impulse buy at the till', pr:'Impulse principle'};
+  if(zid==='eye')return {r:'a strong seller where the eye lands', pr:'Eye level is buy level'};
+  if(z.promo)    return {r:'feature it on the endcap', pr:'Promo endcap'};
+  if(z.destination&&p.destination) return {r:'a destination staple that pulls traffic to the back', pr:'Destination pull'};
+  if(z.w>=1.3)   return {r:'more visibility for a strong seller', pr:'High-visibility zone'};
+  return {r:'a better-fitting spot', pr:'Placement'};
+}
+function advise(pl){
+  const cap=Object.fromEntries(ZONES.map(z=>[z.id,z.cap])), cur=total(pl);
+  const c={}; for(const p of PRODUCTS) c[pl[p.id]]=(c[pl[p.id]]||0)+1;
+  const cands=[];
+  for(const p of PRODUCTS) for(const z of ZONES){
+    if(pl[p.id]===z.id || (c[z.id]||0)>=cap[z.id]) continue;
+    const gain=total({...pl,[p.id]:z.id})-cur;
+    if(gain>2) cands.push({p, z, gain});
+  }
+  cands.sort((a,b)=>b.gain-a.gain);
+  const seen=new Set(), out=[];
+  for(const cd of cands){ if(seen.has(cd.p.id))continue; seen.add(cd.p.id);
+    const e=explain(cd.p,cd.z.id,pl);
+    out.push({t:`Move <b>${cd.p.name}</b> to <b>${cd.z.name}</b> — ${e.r}. <span style="color:var(--sub)">(+${Math.round(cd.gain)} pts)</span>`, p:e.pr, warn:false});
+    if(out.length>=3) break;
+  }
+  for(const p of PRODUCTS){const z=ZI[pl[p.id]]; if(p.low&&z&&(z.promo||z.impulse||z.w>=1.3))
+    out.push({t:`<b>${p.name}</b> is low on stock — restock before featuring it here.`, p:'Stock-aware', warn:true});}
+  return out;
+}
 function applyPreset(k){const o=flat();
   if(k==='impulse')Object.assign(o,{brownie:'counter',cookie:'counter',giftcard:'counter',coldbrew:'eye',oatlatte:'eye',croissant:'endcap',water:'back'});
   if(k==='traffic')Object.assign(o,{water:'back',coldbrew:'power',oatlatte:'power',brownie:'counter',cookie:'endcap',croissant:'eye',giftcard:'counter'});
   if(k==='balanced')Object.assign(o,{coldbrew:'eye',brownie:'eye',oatlatte:'power',croissant:'power',cookie:'endcap',giftcard:'counter',water:'back'});
-  place=o;rebuild();sync();}
+  place=o;selected=null;rebuild();sync();syncSel();$('#optsum').textContent='';}
 window.applyPreset=applyPreset;
+window.optimizeLayout=function(){
+  const before={...place}, opt=optimize();
+  const moves=PRODUCTS.filter(p=>before[p.id]!==opt[p.id]).map(p=>`${p.name} → ${ZI[opt[p.id]].name}`);
+  place=opt; selected=null; rebuild(); sync(); syncSel();
+  const up=Math.round((total(opt)-BASE)/BASE*100);
+  $('#optsum').innerHTML = moves.length
+    ? `✨ Optimized (score +${up}% vs flat) · moved ${moves.slice(0,3).join(', ')}${moves.length>3?` +${moves.length-3} more`:''}`
+    : '✨ Already at the best layout';
+};
 
 // ── three.js scene ────────────────────────────────────────────
 const canvas=document.getElementById('c'), stage=document.getElementById('stage');
@@ -161,7 +209,7 @@ function rebuild(){
   const byZone={}; for(const p of PRODUCTS){(byZone[place[p.id]]=byZone[place[p.id]]||[]).push(p);}
   for(const zid in byZone){ const z=ZI[zid]; const arr=byZone[zid];
     arr.forEach((p,i)=>{
-      const col=arr.length; const cx=(i%3-1)*1.15, cz=(Math.floor(i/3)-0.5)*1.15;
+      const cx=(i%3-1)*1.15, cz=(Math.floor(i/3)-0.5)*1.15;
       const mat=new THREE.MeshStandardMaterial({color:p.color,roughness:.5,emissive:0x000000});
       const box=new THREE.Mesh(new THREE.BoxGeometry(1,1,1),mat);
       box.position.set(z.x+cx,0.9,z.z+cz); box.userData={type:'product',id:p.id};
@@ -184,7 +232,7 @@ canvas.addEventListener('pointerup',e=>{
   if(!hit) return;
   const ud=hit.object.userData;
   if(ud.type==='product'){ selected=ud.id; applySelectHighlight(); syncSel(); }
-  else if(ud.type==='zone' && selected){ if(place[selected]!==ud.id){ place[selected]=ud.id; rebuild(); sync(); } }
+  else if(ud.type==='zone' && selected){ if(place[selected]!==ud.id){ place[selected]=ud.id; rebuild(); sync(); $('#optsum').textContent=''; } }
 });
 
 // ── HUD sync ──────────────────────────────────────────────────
@@ -192,9 +240,9 @@ const $=s=>document.querySelector(s);
 function sync(){
   const up=Math.round((total(place)-BASE)/BASE*100);
   const b=$('#scoreBig'); b.textContent=(up>0?'+':'')+up+'%'; b.className='big '+(up>0?'pos':up<0?'neg':'zero');
-  $('#scoreSub').textContent = up>0?'estimated opportunity vs a flat shelf':up<0?'below the flat-shelf baseline':'same as a flat shelf';
+  $('#scoreSub').textContent = up>0?'better aligned with retail principles than a flat shelf':up<0?'below the flat-shelf baseline':'same as a flat shelf';
   const a=advise(place); $('#advN').textContent=a.length?`· ${a.length}`:'';
-  $('#advice').innerHTML=a.length?a.map(x=>`<div class="adv ${x.warn?'warn':''}"><div class="at">${x.t}</div><div class="ap">${x.p}</div></div>`).join(''):'<div class="empty">Well-placed. No suggestions ✓</div>';
+  $('#advice').innerHTML=a.length?a.map(x=>`<div class="adv ${x.warn?'warn':''}"><div class="at">${x.t}</div><div class="ap">${x.p}</div></div>`).join(''):'<div class="empty">Well-placed. No improving move ✓</div>';
   const code=PRODUCTS.map(p=>ZONES.findIndex(z=>z.id===place[p.id])).join(''); history.replaceState(null,'','#'+code);
 }
 function syncSel(){ $('#sel').innerHTML='Selected: <b>'+(selected?PI[selected].name:'none')+'</b>'+(selected?' — now click a zone':''); }
