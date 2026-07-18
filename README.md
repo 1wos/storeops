@@ -53,6 +53,19 @@ The supervisor delegates by intent, not keywords. Every read, write, and recomme
 
 * * *
 
+## Merchandising layout simulator
+
+The app also ships a self-contained **3D merchandising simulator** (`app/static/layout3d.html`, or `/layout3d`) — plan a store layout before rearranging, and get a **0–100 alignment score** that decomposes, in a "Why this score?" drawer, into cited retail-marketing research. Full write-up → [app/static/merch/README.md](app/static/merch/README.md).
+
+![Merchandising layout simulator](docs/img/merch-simulator.png)
+
+- **0–100 alignment score**, every point traced to a real study — eye-level (Drèze 1994 / Chandon 2009), endcap lift (Nakamura 2014), checkout impulse (Ejlerskov 2018), adjacency (Bezawada 2009), facings (Eisend 2014), entrance exposure (Otterbring 2018, which debunks the "decompression zone"), shopper travel (Hui 2013 / Larson 2005).
+- **"Make it MY store"** editable product economics · **coefficient sensitivity band** (86 ±5) with robust/sensitive advice · **grounded shopper path** with a travel-distance indicator.
+- **Honest by design** — no revenue prediction; it's an alignment index, not a sales model.
+- **Verified** — `cd verify && npm run verify`: 1,360 property trials + geometry proofs (the UI and the checkers import the same `model.js`).
+
+* * *
+
 ## Why MongoDB
 
 | Capability | Where it runs |
@@ -110,7 +123,9 @@ Reliability: `python scripts/run_demo_checks.py` (golden checks, 10/10). Eval pa
 app/        FastAPI + ADK agents (supervisor + ordering/inventory/vision/owner + mcp_agent)
   core/     product_search ($search/$vectorSearch/RRF), audit (evidence trail), mcp
   flows/    owner_read (summary/timeline/evidence/daily report/reconcile), review_to_action
-  static/   console.html (Owner Ops Console) · counter.html (Customer Counter)
+  static/   console.html (Ops Console) · counter.html (Customer Counter) · layout.html (2D)
+            layout3d.html (merchandising simulator) · merch/model.js (scoring + routing model)
+verify/     mechanical checks for the simulator model — `cd verify && npm run verify`
 scripts/    run_demo_checks.py · run_eval_golden.py · prepare_review_seed.py · reset_demo.py
 tests/e2e/  Playwright suite for the web UIs
 Dockerfile  Cloud Run source build (Python + Node for the MongoDB MCP server)
