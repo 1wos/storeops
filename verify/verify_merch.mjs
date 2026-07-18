@@ -3,7 +3,7 @@
 import {
   STORES, buildZones, storeScore, optimize, bounds, alignment, advise,
   contributions, encodePlace, decodePlace, K, PRINCIPLE_ORDER,
-  MISSIONS, missionRoute, zoneById,
+  MISSIONS, missionRoute, zoneById, alignmentBand, moveRobust,
 } from '../app/static/merch/model.js';
 
 // tiny seeded RNG so runs are reproducible
@@ -35,6 +35,17 @@ for(const sk of stores){
     for(const ctx of ctxs){
       const rng = mulberry32(1000+trials);
       const b = bounds(zones, products, ctx);
+
+      // I15 coefficient-sensitivity: band valid, and global K restored after the
+      // Monte-Carlo (a leak would silently corrupt every later score).
+      const furn = {...STORES[sk].layout};
+      const sPre = storeScore(furn, zones, products, ctx).score;
+      const band = alignmentBand(furn, zones, products, ctx, b);
+      const sPost = storeScore(furn, zones, products, ctx).score;
+      check(Number.isFinite(band.spread) && band.spread>=0 && band.hi>=band.lo, 'I15 band-valid', `${sk}`);
+      check(Math.abs(sPre-sPost)<1e-9, 'I15 K-restored', `${sk} ${sPre}!=${sPost}`);
+      check(['robust','likely','sensitive'].includes(moveRobust(furn, products[0].id, zones[6].id, zones, products, ctx)), 'I15 robust-label', `${sk}`);
+
       const best = optimize(zones, products, ctx, +1, 40, rng);
       const worst = optimize(zones, products, ctx, -1, 40, rng);
 
@@ -100,7 +111,7 @@ for(const sk of stores){
 console.log(`\nMerch model verification`);
 console.log(`  configs (store×room×ctx): ${stores.length*rooms.length*ctxs.length}`);
 console.log(`  random-layout trials:     ${trials}`);
-console.log(`  invariants checked:       I1 capacity · I2 optimizer≥random · I3 alignment-endpoints/range · I4 finite · I5 url-roundtrip · I6 advisor-consistent · I7 contrib-finite · I8 decompression · I10 best≥worst · I11 route entrance→checkout · I12 distance-finite · I13 passed-zones-valid · I14 mission-wants-valid + static`);
+console.log(`  invariants checked:       I1 capacity · I2 optimizer≥random · I3 alignment-endpoints/range · I4 finite · I5 url-roundtrip · I6 advisor-consistent · I7 contrib-finite · I8 decompression · I10 best≥worst · I11 route entrance→checkout · I12 distance-finite · I13 passed-zones-valid · I14 mission-wants-valid · I15 sensitivity-band + K-restored + static`);
 if(fails.length){
   console.log(`\n  ❌ ${fails.length} FAILURES:`);
   const seen={}; for(const f of fails){const k=f.split(' ')[0]; seen[k]=(seen[k]||0)+1;}

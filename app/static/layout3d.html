@@ -64,6 +64,12 @@
   .ring .num{position:relative;z-index:1;font-size:24px;font-weight:800;letter-spacing:-.03em}
   .hero .cap{font-size:12.5px;color:var(--mut);font-weight:600}
   .hero .verdict{font-size:11.5px;color:var(--sub);margin-top:3px;line-height:1.4}
+  .hero .band{font-size:10.5px;color:var(--sub);margin-top:5px}
+  .hero .band b{color:var(--mut)}
+  .rob{font-size:9px;font-weight:700;border-radius:5px;padding:1px 5px;margin-left:auto;white-space:nowrap}
+  .rob.r{color:#7dffb0;border:1px solid rgba(0,237,100,.35)}
+  .rob.l{color:var(--amber);border:1px solid rgba(224,162,61,.35)}
+  .rob.s{color:var(--err);border:1px solid rgba(240,102,79,.35)}
   .hero .why{margin-top:12px;width:100%;justify-content:center;display:flex}
   /* controls */
   .presets{display:flex;flex-wrap:wrap;gap:7px}
@@ -203,6 +209,7 @@
         <div>
           <div class="cap">Merchandising Alignment</div>
           <div class="verdict" id="verdict">Place products to score your layout.</div>
+          <div class="band" id="scoreBand"></div>
         </div>
       </div>
       <div class="why"><button class="btn p" onclick="window._openDrawer()" style="width:100%">Why this score? →</button></div>
@@ -626,12 +633,20 @@ function refresh(skipProdBreak){
   const span=Math.max(1e-6, S.bounds ? S.bounds.best-S.bounds.worst : 1); // raw pts → alignment pts
   $('#ring').style.setProperty('--v',a);
   $('#ringNum').textContent=r; $('#verdict').textContent=verdictText(a);
-  // advisor
+  // coefficient-uncertainty band on the score
+  if(S.bounds){ const bd=M.alignmentBand(S.place,zones,products,S.ctx,S.bounds);
+    $('#scoreBand').innerHTML=`<b>±${Math.max(1,Math.round(bd.spread))}</b> band · if the cited coefficients sit anywhere in their evidence ranges`;
+  } else $('#scoreBand').textContent='';
+  // advisor (each move labelled robust vs sensitive across the coefficient ranges)
   const adv=M.advise(S.place,zones,products,S.ctx);
   const moves=adv.filter(x=>!x.warn), warns=adv.filter(x=>x.warn);
   $('#advN').textContent=adv.length?`· ${adv.length}`:'';
   const badge=id=>{const rel=M.PRINCIPLES[id]?.reliability||'input';const nm={strong:'Strong',peer:'Peer-reviewed',meta:'Meta-analysis',heuristic:'Heuristic',input:'Assumption'}[rel];return `<span class="rb ${rel}">${nm}</span>`;}
-  let html=moves.map(m=>`<div class="adv"><div class="at">Move <b>${m.p.name}</b> → <b>${m.z.name}</b> — ${m.reason}. <span class="gain">(+${Math.max(1,Math.round(m.gain*100/span))} pts)</span></div><div class="ap">${badge(m.principle)} ${M.PRINCIPLES[m.principle]?.label||''}</div></div>`).join('');
+  const robCls={robust:'r',likely:'l',sensitive:'s'};
+  let html=moves.map(m=>{
+    const rob=M.moveRobust(S.place,m.p.id,m.z.id,zones,products,S.ctx);
+    return `<div class="adv"><div class="at">Move <b>${m.p.name}</b> → <b>${m.z.name}</b> — ${m.reason}. <span class="gain">(+${Math.max(1,Math.round(m.gain*100/span))} pts)</span></div><div class="ap">${badge(m.principle)} ${M.PRINCIPLES[m.principle]?.label||''} <span class="rob ${robCls[rob]}">${rob}</span></div></div>`;
+  }).join('');
   html+=warns.map(w=>`<div class="adv warn"><div class="at"><b>${w.p.name}</b> ${w.reason}</div><div class="ap">${badge('lowstock')} Low-stock opportunity cost</div></div>`).join('');
   if(!html) html='<div class="empty">Well-placed — no improving move remains ✓</div>';
   $('#advice').innerHTML=html;
@@ -680,6 +695,8 @@ function renderDrawer(){
   let h=`<div class="align-hero"><div class="big">${Math.round(a)}</div><div class="u">/ 100 alignment</div></div>`;
   h+=`<div class="norm-note"><b>How this 0–100 is defined:</b> 100 = the evidence-optimal layout the model can find for this store; 0 = the worst placement. Your layout sits in between. This normalization is a <b>modeling choice</b> for comparability — it is an alignment index, <b>not a predicted sales figure</b>.</div>`;
   h+=`<div class="norm-note"><b>How the rules combine (the load-bearing assumption):</b> each rule's effect is applied <b>multiplicatively as if independent</b>, then <b>summed linearly across products</b>. Coefficients are transferred from <b>different field studies</b> (mostly US/EU grocery/CPG) and the combined score has <b>never been calibrated against real sales</b>. Real position/adjacency/facing effects interact rather than multiply cleanly — so treat this as an evidence-<i>aligned</i> index, not a sales model.</div>`;
+  { const bd=M.alignmentBand(S.place,zones,products,S.ctx,S.bounds);
+    h+=`<div class="norm-note"><b>Score band (±${Math.max(1,Math.round(bd.spread))}):</b> each coefficient is a point estimate with real uncertainty. We Monte-Carlo them within the papers' <b>published ranges</b> (right-side 1.05–1.25, entrance 0.85–1.10, facings 0.15–0.21, back-wall 1.00–1.12) or, where unpublished, sized by evidence tier. The ± band is how far your alignment moves across that uncertainty; an advised move is tagged <b>robust</b> only if it still helps across the whole range, <b>sensitive</b> if it can flip inside it.</div>`; }
   h+=`<div class="dsection">What each rule contributes (leave-one-out)</div>`;
   for(const r of rows){
     if(!r.P)continue;

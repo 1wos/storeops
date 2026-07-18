@@ -377,6 +377,57 @@ export function alignment(score, b) {
   return Math.max(0, Math.min(100, 100 * (score - b.worst) / (b.best - b.worst)));
 }
 
+// ── Coefficient sensitivity (honest uncertainty propagation) ─────────────────
+// Every coefficient is a point estimate with real uncertainty. UNCERT is the ±
+// relative wiggle on each rule's effect — from the papers' STATED ranges where
+// published (rightside 1.05–1.25, entrance 0.85–1.10, facings 0.15–0.21,
+// backwall 1.00–1.12), otherwise sized by evidence tier (single-study/heuristic
+// wider). We Monte-Carlo the coefficients within these ranges to show a band on
+// the score and to label each advised move robust vs sensitive.
+export const UNCERT = {
+  vertical:0.15, rightside:0.09, entrance:0.14, endcap:0.35, checkout:0.30,
+  backwall:0.06, adjacency:0.40, facings:0.18, lowstock:0.40,
+};
+const K_BASE = JSON.parse(JSON.stringify(K));
+function perturbK(rng){
+  const r=()=>rng()*2-1;
+  const dev=(base,u)=>1+(base-1)*(1+u*r());   // coefficients centred on 1.0
+  const dir=(base,u)=>base*(1+u*r());          // additive-slope coefficients
+  K.VTIER.eye=dev(K_BASE.VTIER.eye,UNCERT.vertical); K.VTIER.top=dev(K_BASE.VTIER.top,UNCERT.vertical); K.VTIER.low=dev(K_BASE.VTIER.low,UNCERT.vertical);
+  K.RIGHT_BONUS=dev(K_BASE.RIGHT_BONUS,UNCERT.rightside);
+  K.ENTRANCE=dev(K_BASE.ENTRANCE,UNCERT.entrance);
+  K.ENDCAP_IMPULSE=dir(K_BASE.ENDCAP_IMPULSE,UNCERT.endcap);
+  K.CHECKOUT_IMPULSE=dir(K_BASE.CHECKOUT_IMPULSE,UNCERT.checkout);
+  K.BACKWALL=dev(K_BASE.BACKWALL,UNCERT.backwall);
+  K.ADJ_COEF=dir(K_BASE.ADJ_COEF,UNCERT.adjacency);
+  K.FACINGS_ELASTICITY=dir(K_BASE.FACINGS_ELASTICITY,UNCERT.facings);
+  K.LOWSTOCK_K=dir(K_BASE.LOWSTOCK_K,UNCERT.lowstock);
+}
+function restoreK(){
+  K.VTIER.eye=K_BASE.VTIER.eye; K.VTIER.top=K_BASE.VTIER.top; K.VTIER.waist=K_BASE.VTIER.waist; K.VTIER.low=K_BASE.VTIER.low;
+  K.RIGHT_BONUS=K_BASE.RIGHT_BONUS; K.ENTRANCE=K_BASE.ENTRANCE; K.ENDCAP_IMPULSE=K_BASE.ENDCAP_IMPULSE;
+  K.CHECKOUT_IMPULSE=K_BASE.CHECKOUT_IMPULSE; K.BACKWALL=K_BASE.BACKWALL; K.ADJ_COEF=K_BASE.ADJ_COEF;
+  K.FACINGS_ELASTICITY=K_BASE.FACINGS_ELASTICITY; K.LOWSTOCK_K=K_BASE.LOWSTOCK_K;
+}
+// alignment band for the current layout under coefficient uncertainty (bounds
+// held fixed = the uncertainty applied to your layout on a fixed scale). Seeded
+// → reproducible. try/finally guarantees the real coefficients are restored.
+export function alignmentBand(place, zones, products, ctx={}, b, N=16){
+  const rng=seeded(0x5E01), al=[];
+  try{ for(let i=0;i<N;i++){ perturbK(rng); al.push(alignment(storeScore(place,zones,products,ctx).score, b)); } }
+  finally{ restoreK(); }
+  al.sort((x,y)=>x-y);
+  return { lo:al[Math.floor(N*0.1)], hi:al[Math.ceil(N*0.9)-1], spread:(al[al.length-1]-al[0])/2 };
+}
+// is a candidate move's gain positive across the coefficient ranges?
+export function moveRobust(place, pid, toZone, zones, products, ctx={}, N=16){
+  const rng=seeded(0x5E01); let pos=0; const moved={...place,[pid]:toZone};
+  try{ for(let i=0;i<N;i++){ perturbK(rng);
+    if(storeScore(moved,zones,products,ctx).score - storeScore(place,zones,products,ctx).score > 0) pos++; } }
+  finally{ restoreK(); }
+  return pos>=N-1 ? 'robust' : pos>=N*0.6 ? 'likely' : 'sensitive';
+}
+
 // ── Advisor — top feasible improving moves (never contradicts the optimizer) ─
 export function advise(place, zones, products, ctx = {}) {
   const PI = productIndex(products);
