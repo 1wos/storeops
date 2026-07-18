@@ -2,274 +2,814 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>StoreOps · 3D Store Layout Advisor</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>StoreOps · Merchandising Alignment Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <style>
-  :root{--canvas:#0A0F0E;--s1:#141A19;--s2:#1E2625;--line:rgba(180,190,185,.12);--line2:rgba(180,190,185,.22);
-    --green:#00ED64;--amber:#E0A23D;--ink:#F2F5F3;--mut:#9DAAA6;--sub:#66726E;--read:#5AA9E6;--err:#F0664F;}
+  :root{
+    --canvas:#0A0F0E;--s1:#141A19;--s2:#1E2625;--s3:#232d2b;--line:rgba(180,190,185,.12);--line2:rgba(180,190,185,.22);
+    --green:#00ED64;--green-d:#03130A;--amber:#E0A23D;--blue:#5AA9E6;--purple:#B388F0;--pink:#E069A8;
+    --ink:#F2F5F3;--mut:#9DAAA6;--sub:#66726E;--err:#F0664F;
+  }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--canvas);color:var(--ink);font-family:Inter,system-ui,sans-serif;font-size:14px;overflow:hidden}
-  header{display:flex;align-items:center;gap:12px;padding:12px 22px;border-bottom:1px solid var(--line);position:relative;z-index:6;background:var(--canvas)}
-  header .dot{width:7px;height:7px;border-radius:9999px;background:var(--green);box-shadow:0 0 8px var(--green)}
-  header .logo{font-weight:700;font-size:15px} header .tag{font-size:11px;color:var(--mut);border:1px solid var(--line2);border-radius:9999px;padding:3px 10px}
-  header .right{margin-left:auto;display:flex;gap:8px}
-  .btn{background:transparent;border:1px solid var(--line2);color:var(--mut);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:.14s}
-  .btn:hover{border-color:var(--green);color:var(--ink)} .btn.p{background:var(--green);color:#03130A;border-color:var(--green)}
-  .wrap{display:flex;height:calc(100vh - 49px)}
-  #stage{flex:1;position:relative;overflow:hidden}
-  #c{display:block;width:100%;height:100%}
-  .hint{position:absolute;left:14px;bottom:12px;font-size:11.5px;color:var(--sub);background:rgba(10,15,14,.7);border:1px solid var(--line);border-radius:8px;padding:7px 11px;z-index:3;max-width:280px;line-height:1.4}
-  .zlabel{position:absolute;transform:translate(-50%,-50%);pointer-events:none;text-align:center;z-index:2}
-  .zlabel .n{font-size:11px;font-weight:700;color:var(--ink);text-shadow:0 1px 3px #000}
-  .zlabel .w{font-size:9.5px;color:var(--green);text-shadow:0 1px 3px #000}
+  html,body{margin:0;height:100%}
+  body{background:var(--canvas);color:var(--ink);font-family:Inter,system-ui,-apple-system,sans-serif;font-size:14px;overflow:hidden;-webkit-font-smoothing:antialiased}
+  button{font-family:inherit}
+  /* header */
+  header{display:flex;align-items:center;gap:12px;padding:11px 20px;border-bottom:1px solid var(--line);position:relative;z-index:20;background:var(--canvas)}
+  header .dot{width:7px;height:7px;border-radius:9999px;background:var(--green);box-shadow:0 0 8px var(--green);flex:none}
+  header .logo{font-weight:800;font-size:15px;letter-spacing:-.01em}
+  header .tag{font-size:11px;color:var(--mut);border:1px solid var(--line2);border-radius:9999px;padding:3px 10px;white-space:nowrap}
+  header .grow{margin-left:auto}
+  header .cluster{display:flex;gap:7px;align-items:center}
+  .btn{background:transparent;border:1px solid var(--line2);color:var(--mut);border-radius:9px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:.14s;white-space:nowrap;min-height:34px}
+  .btn:hover{border-color:var(--green);color:var(--ink)}
+  .btn:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+  .btn.p{background:var(--green);color:var(--green-d);border-color:var(--green)}
+  .btn.p:hover{filter:brightness(1.08)}
+  .btn.on{border-color:var(--green);color:var(--green)}
+  .seg{display:inline-flex;border:1px solid var(--line2);border-radius:9px;overflow:hidden}
+  .seg button{background:transparent;border:0;color:var(--mut);padding:7px 11px;font-size:12px;font-weight:600;cursor:pointer;min-height:34px}
+  .seg button.sel{background:var(--s2);color:var(--ink)}
+  select.mini{background:var(--s1);border:1px solid var(--line2);color:var(--mut);border-radius:9px;padding:7px 9px;font-size:12px;font-weight:600;cursor:pointer;min-height:34px}
+  /* layout */
+  .wrap{display:flex;height:calc(100vh - 47px);height:calc(100dvh - 47px)}
+  #stage{flex:1;position:relative;overflow:hidden;min-width:0}
+  #c{display:block;width:100%;height:100%;touch-action:none}
+  .hint{position:absolute;left:14px;bottom:12px;font-size:11.5px;color:var(--sub);background:rgba(10,15,14,.72);border:1px solid var(--line);border-radius:9px;padding:7px 11px;z-index:3;max-width:300px;line-height:1.45;backdrop-filter:blur(4px)}
+  .hint b{color:var(--mut)}
+  .zlabel{position:absolute;transform:translate(-50%,-50%);pointer-events:none;text-align:center;z-index:2;transition:opacity .2s}
+  .zlabel .n{font-size:11px;font-weight:700;color:#fff;text-shadow:0 1px 4px #000,0 0 2px #000}
+  .zlabel .w{font-size:9px;color:var(--green);text-shadow:0 1px 4px #000;font-weight:600}
+  /* heatmap legend */
+  .legend{position:absolute;right:14px;bottom:12px;z-index:3;background:rgba(10,15,14,.72);border:1px solid var(--line);border-radius:9px;padding:8px 11px;font-size:10.5px;color:var(--mut);backdrop-filter:blur(4px);display:none}
+  .legend.show{display:block}
+  .legend .bar{height:7px;width:120px;border-radius:4px;margin:5px 0 3px;background:linear-gradient(90deg,#1b3a6b,#1f8a5a,#e0a23d,#f0664f)}
+  .legend .ends{display:flex;justify-content:space-between;font-size:9.5px;color:var(--sub)}
+  /* compare bar */
+  .compare{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:4;background:rgba(20,26,25,.9);border:1px solid var(--line2);border-radius:11px;padding:8px 12px;display:none;align-items:center;gap:12px;font-size:12px;backdrop-filter:blur(6px)}
+  .compare.show{display:flex}
+  .compare .d{font-weight:700}.compare .d.up{color:var(--green)}.compare .d.dn{color:var(--err)}
   /* right panel */
-  .side{width:340px;border-left:1px solid var(--line);background:var(--s1);overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
-  .eyebrow{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--sub)}
-  .box{background:var(--s2);border:1px solid var(--line);border-radius:12px;padding:14px}
-  .score{background:linear-gradient(100deg,rgba(0,237,100,.10),rgba(90,169,230,.05));border:1px solid var(--line2)}
-  .score .big{font-size:32px;font-weight:800;letter-spacing:-.02em} .score .big.pos{color:var(--green)} .score .big.neg{color:var(--err)} .score .big.zero{color:var(--mut)}
-  .score .cap{font-size:12px;color:var(--mut)} .score .disc{font-size:10px;color:var(--sub);margin-top:7px;border-top:1px solid var(--line);padding-top:7px;line-height:1.4}
+  .side{width:352px;flex:none;border-left:1px solid var(--line);background:var(--s1);overflow:auto;padding:15px;display:flex;flex-direction:column;gap:13px}
+  .eyebrow{font-size:10.5px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;color:var(--sub)}
+  .box{background:var(--s2);border:1px solid var(--line);border-radius:13px;padding:14px}
+  /* hero score */
+  .hero{background:radial-gradient(120% 120% at 0% 0%,rgba(0,237,100,.13),rgba(90,169,230,.05) 60%,transparent);border:1px solid var(--line2)}
+  .hero .row{display:flex;align-items:center;gap:14px}
+  .ring{--v:0;width:78px;height:78px;flex:none;border-radius:50%;
+    background:conic-gradient(var(--green) calc(var(--v)*1%),var(--s3) 0);display:grid;place-items:center;position:relative}
+  .ring::after{content:"";position:absolute;inset:7px;border-radius:50%;background:var(--s2)}
+  .ring .num{position:relative;z-index:1;font-size:24px;font-weight:800;letter-spacing:-.03em}
+  .hero .cap{font-size:12.5px;color:var(--mut);font-weight:600}
+  .hero .verdict{font-size:11.5px;color:var(--sub);margin-top:3px;line-height:1.4}
+  .hero .why{margin-top:12px;width:100%;justify-content:center;display:flex}
+  /* controls */
   .presets{display:flex;flex-wrap:wrap;gap:7px}
-  .sel{font-size:12px;color:var(--mut)} .sel b{color:var(--green)}
-  .adv{border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:7px;background:var(--s1)}
-  .adv .at{font-size:12.5px;line-height:1.4} .adv .ap{font-size:10px;color:var(--read);margin-top:4px;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
-  .adv.warn{border-color:rgba(224,162,61,.35)} .adv.warn .ap{color:var(--amber)}
+  .slider-row{display:flex;align-items:center;gap:9px;margin-top:9px;font-size:11.5px;color:var(--mut)}
+  .slider-row label{width:16px;font-weight:700;color:var(--sub)}
+  input[type=range]{flex:1;accent-color:var(--green);height:22px}
+  .slider-row .val{width:44px;text-align:right;color:var(--ink);font-weight:600}
+  .optsum{font-size:11.5px;color:var(--green);margin-top:9px;line-height:1.4;min-height:0}
+  .sel{font-size:12px;color:var(--mut)}.sel b{color:var(--ink)}
+  /* toggles */
+  .toggle{display:flex;align-items:flex-start;gap:9px;padding:8px 0;border-top:1px solid var(--line)}
+  .toggle:first-of-type{border-top:0}
+  .switch{flex:none;width:34px;height:20px;border-radius:9999px;background:var(--s3);border:1px solid var(--line2);position:relative;cursor:pointer;transition:.16s;margin-top:1px}
+  .switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--mut);transition:.16s}
+  .switch.on{background:rgba(0,237,100,.25);border-color:var(--green)}
+  .switch.on::after{left:16px;background:var(--green)}
+  .toggle .tx{font-size:12px;line-height:1.4}
+  .toggle .tx .t{font-weight:600}
+  .toggle .tx .s{color:var(--sub);font-size:11px}
+  .warn-tag{display:inline-block;font-size:9.5px;font-weight:700;color:var(--amber);border:1px solid rgba(224,162,61,.4);border-radius:5px;padding:1px 5px;margin-left:5px;vertical-align:1px}
+  /* advisor */
+  .adv{border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:7px;background:var(--s1)}
+  .adv .at{font-size:12.5px;line-height:1.45}.adv .at b{color:var(--ink)}
+  .adv .ap{font-size:9.5px;color:var(--blue);margin-top:5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;display:flex;align-items:center;gap:6px}
+  .adv.warn{border-color:rgba(224,162,61,.35)}.adv.warn .ap{color:var(--amber)}
   .empty{color:var(--sub);font-size:12px}
-  /* narrow: stack (never overlay the 3D), and allow the page to scroll */
-  @media(max-width:820px){
+  .gain{color:var(--sub);font-weight:600}
+  /* shopper-path indicator */
+  .pathind .pd{font-size:12px;color:var(--mut);margin-top:9px;line-height:1.5}
+  .pathind .pd b.up{color:var(--green)} .pathind .pd b.dn{color:var(--err)}
+  .pathind .pnote{font-size:10.5px;color:var(--sub);line-height:1.5;margin-top:9px;border-top:1px solid var(--line);padding-top:9px}
+  /* per-product mini breakdown */
+  .pb{font-size:11.5px;color:var(--mut);line-height:1.5}
+  .pb .chip{display:inline-block;background:var(--s1);border:1px solid var(--line);border-radius:6px;padding:1px 6px;margin:2px 3px 0 0;font-size:10.5px}
+  /* reliability badges */
+  .rb{display:inline-flex;align-items:center;gap:4px;font-size:9.5px;font-weight:700;border-radius:6px;padding:2px 6px;white-space:nowrap;letter-spacing:.02em}
+  .rb.strong{color:#7dffb0;background:rgba(0,237,100,.12);border:1px solid rgba(0,237,100,.3)}
+  .rb.peer{color:#9ccff5;background:rgba(90,169,230,.12);border:1px solid rgba(90,169,230,.3)}
+  .rb.meta{color:#d3b6ff;background:rgba(179,136,240,.13);border:1px solid rgba(179,136,240,.3)}
+  .rb.heuristic{color:#f0c07a;background:rgba(224,162,61,.12);border:1px solid rgba(224,162,61,.3)}
+  .rb.input{color:var(--mut);background:rgba(157,170,166,.1);border:1px solid var(--line2)}
+  /* evidence drawer */
+  .scrim{position:fixed;inset:0;background:rgba(4,8,7,.55);z-index:40;opacity:0;pointer-events:none;transition:.2s;backdrop-filter:blur(2px)}
+  .scrim.show{opacity:1;pointer-events:auto}
+  .drawer{position:fixed;top:0;right:0;height:100%;width:min(480px,94vw);background:var(--s1);border-left:1px solid var(--line2);z-index:41;transform:translateX(100%);transition:transform .26s cubic-bezier(.4,0,.2,1);overflow:auto;box-shadow:-24px 0 60px rgba(0,0,0,.4)}
+  .drawer.show{transform:none}
+  .drawer .dh{position:sticky;top:0;background:var(--s1);border-bottom:1px solid var(--line);padding:16px 18px;display:flex;align-items:center;gap:12px;z-index:2}
+  .drawer .dh h2{font-size:15px;margin:0;font-weight:700}
+  .drawer .dh .x{margin-left:auto;background:var(--s2);border:1px solid var(--line2);color:var(--mut);width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:15px}
+  .drawer .body{padding:16px 18px 40px}
+  .align-hero{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+  .align-hero .big{font-size:40px;font-weight:800;letter-spacing:-.03em;color:var(--green)}
+  .align-hero .u{font-size:15px;color:var(--sub);font-weight:600}
+  .norm-note{font-size:11px;color:var(--sub);line-height:1.5;background:var(--s2);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin:8px 0 16px}
+  .prow{border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:9px;background:var(--s2)}
+  .prow .top{display:flex;align-items:center;gap:9px}
+  .prow .pname{font-weight:700;font-size:13px}
+  .prow .pts{margin-left:auto;font-weight:800;font-size:14px;white-space:nowrap}
+  .prow .pts.pos{color:var(--green)}.prow .pts.neg{color:var(--err)}.prow .pts.zero{color:var(--sub)}
+  .prow .coef{font-size:11px;color:var(--mut);margin-top:7px;font-variant-numeric:tabular-nums}
+  .prow .range{font-size:10.5px;color:var(--sub);margin-top:2px}
+  .prow .tip{font-size:11.5px;color:var(--mut);line-height:1.5;margin-top:8px}
+  .prow .cites{margin-top:8px}
+  .prow .cites summary{font-size:10.5px;color:var(--blue);cursor:pointer;font-weight:600;list-style:none}
+  .prow .cites summary::-webkit-details-marker{display:none}
+  .prow .cites summary::before{content:"▸ ";}
+  .prow .cites[open] summary::before{content:"▾ ";}
+  .prow .cites ul{margin:6px 0 0;padding-left:16px}
+  .prow .cites li{font-size:10.5px;color:var(--sub);line-height:1.5;margin-bottom:4px}
+  .prow .flag{font-size:9.5px;font-weight:700;border-radius:5px;padding:1px 6px}
+  .prow .flag.heu{color:var(--amber);border:1px solid rgba(224,162,61,.4)}
+  .prow .flag.con{color:var(--err);border:1px solid rgba(240,102,79,.4)}
+  .badge-legend{display:flex;flex-wrap:wrap;gap:7px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .dsection{font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--sub);margin:18px 0 9px}
+  /* responsive: stack, never overlay the 3D */
+  @media(max-width:860px){
     body{overflow:auto}
     .wrap{flex-direction:column;height:auto}
-    #stage{height:55vh;min-height:320px;flex:none}
-    .side{width:100%;height:auto;position:static;border-left:0;border-top:1px solid var(--line)}
+    #stage{height:52vh;min-height:300px;flex:none}
+    .side{width:100%;height:auto;border-left:0;border-top:1px solid var(--line)}
+    header{flex-wrap:wrap;gap:8px}
+    .btn,.seg button,select.mini{min-height:40px}
   }
 </style>
 <script type="importmap">
-{"imports":{"three":"/static/vendor/three.module.js","OrbitControls":"/static/vendor/OrbitControls.js"}}
+{"imports":{"three":"./vendor/three.module.js","OrbitControls":"./vendor/OrbitControls.js"}}
 </script>
 </head>
 <body>
 <header>
-  <span class="dot"></span><span class="logo">StoreOps</span><span class="tag">3D Store Layout Advisor</span>
-  <div class="right">
-    <button class="btn" onclick="location.href='/layout'">2D view</button>
-    <button class="btn" onclick="location.href='/'">← Console</button>
-    <button class="btn" id="shareBtn" onclick="share()">Share ↗</button>
+  <span class="dot"></span>
+  <span class="logo">StoreOps</span>
+  <span class="tag">Merchandising Alignment Simulator</span>
+  <div class="cluster" style="margin-left:14px">
+    <div class="seg" id="storeSeg" role="tablist" aria-label="Store type"></div>
+  </div>
+  <div class="grow"></div>
+  <div class="cluster">
+    <div class="seg" id="viewSeg" aria-label="Camera view">
+      <button data-v="3d" class="sel">3D</button><button data-v="top">Top</button>
+    </div>
+    <select class="mini" id="themeSel" aria-label="Scene theme">
+      <option value="dark">Dark</option><option value="wood">Wood</option>
+      <option value="natural">Natural</option><option value="corporate">Corporate</option>
+    </select>
+    <button class="btn" id="shareBtn" onclick="window._share()" aria-label="Copy shareable link">Share ↗</button>
   </div>
 </header>
+
 <div class="wrap">
   <div id="stage">
     <canvas id="c"></canvas>
     <div id="labels"></div>
-    <div class="hint">Drag to orbit · scroll to zoom · <b>click a product</b> then <b>click a zone</b> to move it.</div>
+    <div class="hint">Drag to orbit · scroll to zoom · <b>click a product</b>, then <b>click a zone</b> to move it.</div>
+    <div class="legend" id="legend">
+      Traffic × visibility
+      <div class="bar"></div>
+      <div class="ends"><span>quiet</span><span>hot</span></div>
+    </div>
+    <div class="compare" id="compareBar">
+      <span id="compareTxt"></span>
+      <button class="btn" id="restoreBtn" onclick="window._restore()">Revert</button>
+    </div>
   </div>
-  <div class="side">
-    <div class="box score">
-      <div class="cap">Merchandising score</div>
-      <div class="big" id="scoreBig">—</div>
-      <div class="cap" id="scoreSub">vs a flat shelf</div>
-      <div class="disc"><b>Principle-alignment</b> score (eye-level, adjacency, impulse, stock) — <b>not a sales prediction</b>. Use it to compare layouts and choose what to A/B test in store.</div>
-    </div>
-    <div class="box">
-      <div class="eyebrow" style="margin-bottom:8px">Layout</div>
-      <div class="presets">
-        <button class="btn p" onclick="optimizeLayout()">✨ Optimize</button>
-        <button class="btn" onclick="applyPreset('impulse')">Impulse-max</button>
-        <button class="btn" onclick="applyPreset('traffic')">Traffic-flow</button>
-        <button class="btn" onclick="applyPreset('balanced')">Balanced</button>
-        <button class="btn" onclick="applyPreset('flat')">Reset</button>
+
+  <aside class="side">
+    <!-- HERO: alignment score -->
+    <div class="box hero">
+      <div class="row">
+        <div class="ring" id="ring"><span class="num" id="ringNum">—</span></div>
+        <div>
+          <div class="cap">Merchandising Alignment</div>
+          <div class="verdict" id="verdict">Place products to score your layout.</div>
+        </div>
       </div>
-      <div class="sel" id="optsum" style="margin-top:10px;color:var(--green)"></div>
-      <div class="sel" id="sel" style="margin-top:6px">Selected: <b>none</b></div>
+      <div class="why"><button class="btn p" onclick="window._openDrawer()" style="width:100%">Why this score? →</button></div>
     </div>
+
+    <!-- CONTROLS -->
+    <div class="box">
+      <div class="eyebrow" style="margin-bottom:9px">Layout</div>
+      <div class="presets">
+        <button class="btn p" onclick="window._optimize()">✨ Optimize</button>
+        <button class="btn" onclick="window._furnish()">Furnished</button>
+        <button class="btn" onclick="window._pin()" id="pinBtn">Pin as “before”</button>
+      </div>
+      <div class="optsum" id="optsum"></div>
+      <div style="margin-top:12px" class="eyebrow">Room size <span style="color:var(--sub);text-transform:none;letter-spacing:0;font-weight:500">· visual (geometry scored in v2)</span></div>
+      <div class="slider-row"><label>W</label><input type="range" id="roomW" min="6" max="22" step="1" value="12"><span class="val" id="roomWv">12 m</span></div>
+      <div class="slider-row"><label>D</label><input type="range" id="roomD" min="6" max="22" step="1" value="12"><span class="val" id="roomDv">12 m</span></div>
+      <div class="sel" id="sel" style="margin-top:11px">Selected: <b>none</b></div>
+      <div class="pb" id="prodBreak" style="margin-top:7px"></div>
+    </div>
+
+    <!-- OPTIONS / contested toggles -->
+    <div class="box">
+      <div class="eyebrow" style="margin-bottom:4px">Display &amp; assumptions</div>
+      <div class="toggle">
+        <div class="switch on" id="tgHeat" onclick="window._toggle('heat')" role="switch" aria-checked="true" tabindex="0"></div>
+        <div class="tx"><div class="t">Traffic × visibility heatmap</div><div class="s">Foundational input, not an outcome.</div></div>
+      </div>
+      <div class="toggle">
+        <div class="switch" id="tgDecomp" onclick="window._toggle('decomp')" role="switch" aria-checked="false" tabindex="0"></div>
+        <div class="tx"><div class="t">“Decompression zone” penalty <span class="warn-tag" id="decompTag" style="display:none">DEBUNKED</span></div><div class="s">Off by default — Otterbring 2018 found entrance displays lift sales.</div></div>
+      </div>
+      <div class="toggle">
+        <div class="switch" id="tgCirc" onclick="window._toggle('circ')" role="switch" aria-checked="false" tabindex="0"></div>
+        <div class="tx"><div class="t">Clockwise circulation</div><div class="s">Flips the right-side bonus. Direction is contested — tunable.</div></div>
+      </div>
+    </div>
+
+    <!-- SHOPPER PATH (indicator, deliberately NOT in the 0-100 score) -->
+    <div class="box">
+      <div class="eyebrow" style="margin-bottom:8px">Shopper path <span style="color:var(--sub);text-transform:none;letter-spacing:0;font-weight:500">· indicator, not in the score</span></div>
+      <div class="presets" id="missionPills"></div>
+      <div class="pathind" id="pathInd"></div>
+    </div>
+
+    <!-- ADVISOR -->
     <div class="box">
       <div class="eyebrow" style="margin-bottom:8px">Advisor <span id="advN" style="color:var(--mut)"></span></div>
-      <div id="advice"><div class="empty">Move products to get advice.</div></div>
+      <div id="advice"><div class="empty">Move products to get evidence-based advice.</div></div>
     </div>
+  </aside>
+</div>
+
+<!-- EVIDENCE DRAWER -->
+<div class="scrim" id="scrim" onclick="window._closeDrawer()"></div>
+<div class="drawer" id="drawer" role="dialog" aria-label="Score explanation" aria-modal="true">
+  <div class="dh">
+    <h2>Why this score?</h2>
+    <button class="x" onclick="window._closeDrawer()" aria-label="Close">✕</button>
   </div>
+  <div class="body" id="drawerBody"></div>
 </div>
 
 <script type="module">
 import * as THREE from 'three';
 import {OrbitControls} from 'OrbitControls';
+import * as M from './merch/model.js';
 
-// ── domain model (shared with 2D) ─────────────────────────────
-// w = selling power of the location (visibility × traffic) · cap = how many products the zone holds
-const ZONES=[
-  {id:'entrance',name:'Entrance',      w:0.5, cap:1, x:0,  z:9,  note:'decompression zone'},
-  {id:'power',   name:'Power Wall (R)',w:1.3, cap:2, x:7,  z:4,  note:'right wall, high visibility'},
-  {id:'eye',     name:'Eye-level',     w:1.4, cap:2, x:0,  z:2,  note:'eye level is buy level'},
-  {id:'endcap',  name:'Endcap',        w:1.25,cap:1, x:-7, z:4,  promo:true, note:'promo cap'},
-  {id:'lower',   name:'Lower Shelf',   w:0.7, cap:3, x:0,  z:5.5,note:'low visibility'},
-  {id:'counter', name:'Checkout',      w:1.5, cap:2, x:7,  z:9,  impulse:true, note:'impulse at pay'},
-  {id:'back',    name:'Back Wall',     w:0.9, cap:2, x:0,  z:-6, destination:true, note:'destination pull'},
-];
-const ZI=Object.fromEntries(ZONES.map(z=>[z.id,z]));
-const PRODUCTS=[
-  {id:'coldbrew', name:'Cold Brew',      margin:.45,velocity:.9, impulse:.5, comp:['brownie'],   color:0x5AA9E6},
-  {id:'oatlatte', name:'Oat Milk Latte', margin:.5, velocity:.85,impulse:.4, comp:['croissant'], color:0xB388F0},
-  {id:'brownie',  name:'Brownie',        margin:.65,velocity:.6, impulse:.8, comp:['coldbrew'],  low:true, color:0xE0A23D},
-  {id:'croissant',name:'Croissant',      margin:.55,velocity:.55,impulse:.6, comp:['oatlatte'],  color:0xE069A8},
-  {id:'cookie',   name:'Cookie',         margin:.7, velocity:.5, impulse:.85,comp:[],            color:0x00ED64},
-  {id:'water',    name:'Bottled Water',  margin:.2, velocity:.95,impulse:.2, comp:[], destination:true, color:0x9DAAA6},
-  {id:'giftcard', name:'Gift Card',      margin:.9, velocity:.2, impulse:.7, comp:[],            color:0xF0664F},
-];
-const PI=Object.fromEntries(PRODUCTS.map(p=>[p.id,p]));
-let place={};
-const flat=()=>Object.fromEntries(PRODUCTS.map(p=>[p.id,'lower']));
+// ── app state ────────────────────────────────────────────────────────────────
+const S = {
+  store:'cafe', roomW:12, roomD:12,
+  ctx:{decompression:false, circulation:'right'},
+  theme:'dark', view:'3d', heat:true,
+  place:{}, selected:null, pinned:null, bounds:null,
+  mission:'coffee', route:null,
+};
+const $ = s=>document.querySelector(s);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+let products=[], PI={}, zones=[];
 
-function pScore(p,zid){const z=ZI[zid];if(!z)return 0;let s=p.velocity*100*z.w*(1+p.margin*0.4);if(z.impulse)s*=(1+p.impulse*0.5);if(z.promo)s*=(1+p.impulse*0.25);return s;}
-function total(pl){let s=0;for(const p of PRODUCTS)s+=pScore(p,pl[p.id]);const seen=new Set();for(const p of PRODUCTS)for(const c of p.comp){const k=[p.id,c].sort().join('|');if(!seen.has(k)&&pl[p.id]===pl[c]){s+=10;seen.add(k);}}for(const p of PRODUCTS)if(p.destination&&pl[p.id]==='back')s*=1.06;for(const p of PRODUCTS){const z=ZI[pl[p.id]];if(p.low&&z&&(z.promo||z.impulse||z.w>=1.3))s-=50;}return s;}
-const BASE=total(flat());
+function loadStore(k, keepPlace=false){
+  S.store=k; products=M.STORES[k].products; PI=M.productIndex(products);
+  if(!keepPlace) S.place={...M.STORES[k].layout};
+  S.selected=null; S.pinned=null;
+  S.mission = (M.MISSIONS[k]&&M.MISSIONS[k][0].id)||null;
+  recomputeBounds();
+}
+function recomputeBounds(){ S.bounds=M.bounds(zones, products, S.ctx); }
+function currentMission(){ const list=M.MISSIONS[S.store]||[]; return list.find(m=>m.id===S.mission)||list[0]; }
+function computeRoute(){ const m=currentMission(); S.route = m ? M.missionRoute(S.place, zones, products, m, S.ctx) : null; return S.route; }
+function refreshPath(){ computeRoute(); updatePathIndicator(); if(GL) buildPath(); }
 
-// ── optimizer: find product→zone assignment maximising the score, respecting zone capacity ──
-function optimize(){
-  const cap=Object.fromEntries(ZONES.map(z=>[z.id,z.cap])), pids=PRODUCTS.map(p=>p.id);
-  const feasible=pl=>{const c={};for(const p of pids)c[pl[p]]=(c[pl[p]]||0)+1;return ZONES.every(z=>(c[z.id]||0)<=cap[z.id]);};
-  function randStart(){const slots=[];ZONES.forEach(z=>{for(let i=0;i<cap[z.id];i++)slots.push(z.id);});for(let i=slots.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[slots[i],slots[j]]=[slots[j],slots[i]];}const o={};pids.forEach((p,i)=>o[p]=slots[i]);return o;}
-  function climb(start){let cur={...start},best=total(cur),imp=true;while(imp){imp=false;
-    for(const p of pids)for(const z of ZONES){if(cur[p]===z.id)continue;const cand={...cur,[p]:z.id};if(feasible(cand)){const s=total(cand);if(s>best+1e-6){cur=cand;best=s;imp=true;}}}
-    for(let i=0;i<pids.length;i++)for(let j=i+1;j<pids.length;j++){const a=pids[i],b=pids[j];if(cur[a]===cur[b])continue;const cand={...cur,[a]:cur[b],[b]:cur[a]};const s=total(cand);if(s>best+1e-6){cur=cand;best=s;imp=true;}}}
-    return{pl:cur,score:best};}
-  let bs=climb(randStart());for(let r=0;r<60;r++){const s=climb(randStart());if(s.score>bs.score)bs=s;}return bs.pl;
+// ── THREE setup (isolated: a WebGL failure must never blank the scoring UI) ──
+const canvas=$('#c'), stage=$('#stage');
+let GL=false, renderer, scene, camera, controls, amb, dir;
+function init3D(){
+  renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  scene=new THREE.Scene();
+  camera=new THREE.PerspectiveCamera(45,1,0.1,300); camera.position.set(13,10,15);
+  controls=new OrbitControls(camera,canvas);
+  controls.target.set(0,1,0); controls.enableDamping=true; controls.dampingFactor=.09;
+  controls.maxPolarAngle=Math.PI*0.49; controls.minDistance=6; controls.maxDistance=60;
+  controls.addEventListener('change',invalidate);
+  amb=new THREE.AmbientLight(0xffffff,.6); scene.add(amb);
+  dir=new THREE.DirectionalLight(0xffffff,.95); dir.position.set(9,18,11);
+  dir.castShadow=true; dir.shadow.mapSize.set(1024,1024);
+  dir.shadow.camera.near=1; dir.shadow.camera.far=80;
+  dir.shadow.camera.left=-24;dir.shadow.camera.right=24;dir.shadow.camera.top=24;dir.shadow.camera.bottom=-24;
+  scene.add(dir);
+  walls=new THREE.Group(); scene.add(walls);
+  GL=true;
+}
+function showFallback(){
+  const d=document.createElement('div');
+  d.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:26px;z-index:2';
+  d.innerHTML='<div style="max-width:340px;color:var(--mut);font-size:13px;line-height:1.65">🖥️ <b style="color:var(--ink)">3D preview needs WebGL</b><br>It renders in your browser. All scoring, advice and the “Why this score?” evidence on the right are fully live.</div>';
+  stage.appendChild(d); const h=document.querySelector('.hint'); if(h) h.style.display='none';
 }
 
-// advice = the top feasible moves that most improve the SAME score the optimizer maximises,
-// so suggestions never contradict Optimize (after Optimize, no improving move remains).
-function explain(p,zid,pl){
-  const z=ZI[zid], compHere=p.comp.find(c=>pl[c]===zid);
-  if(compHere) return {r:`pair it with ${PI[compHere].name} — often bought together`, pr:'Cross-merchandising'};
-  if(z.impulse)  return {r:'a high-margin impulse buy at the till', pr:'Impulse principle'};
-  if(zid==='eye')return {r:'a strong seller where the eye lands', pr:'Eye level is buy level'};
-  if(z.promo)    return {r:'feature it on the endcap', pr:'Promo endcap'};
-  if(z.destination&&p.destination) return {r:'a destination staple that pulls traffic to the back', pr:'Destination pull'};
-  if(z.w>=1.3)   return {r:'more visibility for a strong seller', pr:'High-visibility zone'};
-  return {r:'a better-fitting spot', pr:'Placement'};
-}
-function advise(pl){
-  const cap=Object.fromEntries(ZONES.map(z=>[z.id,z.cap])), cur=total(pl);
-  const c={}; for(const p of PRODUCTS) c[pl[p.id]]=(c[pl[p.id]]||0)+1;
-  const cands=[];
-  for(const p of PRODUCTS) for(const z of ZONES){
-    if(pl[p.id]===z.id || (c[z.id]||0)>=cap[z.id]) continue;
-    const gain=total({...pl,[p.id]:z.id})-cur;
-    if(gain>2) cands.push({p, z, gain});
-  }
-  cands.sort((a,b)=>b.gain-a.gain);
-  const seen=new Set(), out=[];
-  for(const cd of cands){ if(seen.has(cd.p.id))continue; seen.add(cd.p.id);
-    const e=explain(cd.p,cd.z.id,pl);
-    out.push({t:`Move <b>${cd.p.name}</b> to <b>${cd.z.name}</b> — ${e.r}. <span style="color:var(--sub)">(+${Math.round(cd.gain)} pts)</span>`, p:e.pr, warn:false});
-    if(out.length>=3) break;
-  }
-  for(const p of PRODUCTS){const z=ZI[pl[p.id]]; if(p.low&&z&&(z.promo||z.impulse||z.w>=1.3))
-    out.push({t:`<b>${p.name}</b> is low on stock — restock before featuring it here.`, p:'Stock-aware', warn:true});}
-  return out;
-}
-function applyPreset(k){const o=flat();
-  if(k==='impulse')Object.assign(o,{brownie:'counter',cookie:'counter',giftcard:'counter',coldbrew:'eye',oatlatte:'eye',croissant:'endcap',water:'back'});
-  if(k==='traffic')Object.assign(o,{water:'back',coldbrew:'power',oatlatte:'power',brownie:'counter',cookie:'endcap',croissant:'eye',giftcard:'counter'});
-  if(k==='balanced')Object.assign(o,{coldbrew:'eye',brownie:'eye',oatlatte:'power',croissant:'power',cookie:'endcap',giftcard:'counter',water:'back'});
-  place=o;selected=null;rebuild();sync();syncSel();$('#optsum').textContent='';}
-window.applyPreset=applyPreset;
-window.optimizeLayout=function(){
-  const before={...place}, opt=optimize();
-  const moves=PRODUCTS.filter(p=>before[p.id]!==opt[p.id]).map(p=>`${p.name} → ${ZI[opt[p.id]].name}`);
-  place=opt; selected=null; rebuild(); sync(); syncSel();
-  const up=Math.round((total(opt)-BASE)/BASE*100);
-  $('#optsum').innerHTML = moves.length
-    ? `✨ Optimized (score +${up}% vs flat) · moved ${moves.slice(0,3).join(', ')}${moves.length>3?` +${moves.length-3} more`:''}`
-    : '✨ Already at the best layout';
+// themes (scene materials only; app chrome stays dark)
+const THEMES={
+  dark:     {bg:0x0A0F0E, floor:0x0f1615, wall:0x141a19, grid1:0x243230, grid2:0x141A19, plat:0x1E2625, amb:.6,  dir:.95},
+  wood:     {bg:0x171008, floor:0x5a4028, wall:0x3a2a1a, grid1:0x6b4e30, grid2:0x2a1e12, plat:0x74542f, amb:.62, dir:1.0},
+  natural:  {bg:0xe9ede8, floor:0xd7ddd4, wall:0xc4ccc2, grid1:0xb2bcae, grid2:0xcdd4c9, plat:0xbcc6b6, amb:.9,  dir:.7},
+  corporate:{bg:0x0c1118, floor:0x141b26, wall:0x1a2330, grid1:0x2a3a52, grid2:0x141b26, plat:0x213247, amb:.62, dir:.9},
 };
 
-// ── three.js scene ────────────────────────────────────────────
-const canvas=document.getElementById('c'), stage=document.getElementById('stage');
-const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-const scene=new THREE.Scene(); scene.background=new THREE.Color(0x0A0F0E);
-const camera=new THREE.PerspectiveCamera(45,1,0.1,200); camera.position.set(2,15,20);
-const controls=new OrbitControls(camera,canvas); controls.target.set(0,1,2); controls.enableDamping=true; controls.maxPolarAngle=Math.PI*0.49;
-scene.add(new THREE.AmbientLight(0xffffff,0.55));
-const dir=new THREE.DirectionalLight(0xffffff,0.9); dir.position.set(8,16,10); scene.add(dir);
-const floor=new THREE.Mesh(new THREE.PlaneGeometry(46,46),new THREE.MeshStandardMaterial({color:0x0f1615,roughness:1}));
-floor.rotation.x=-Math.PI/2; scene.add(floor);
-const grid=new THREE.GridHelper(46,23,0x1E2625,0x141A19); grid.position.y=0.01; scene.add(grid);
-
-// zone platforms
-const zoneMeshes={}; const labelsLayer=document.getElementById('labels'); const labelEls={};
-for(const z of ZONES){
-  const m=new THREE.Mesh(new THREE.BoxGeometry(4,0.4,4),new THREE.MeshStandardMaterial({color:0x1E2625,roughness:.9}));
-  m.position.set(z.x,0.2,z.z); m.userData={type:'zone',id:z.id}; scene.add(m); zoneMeshes[z.id]=m;
-  const edge=new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),new THREE.LineBasicMaterial({color:0x2c3a38})); edge.position.copy(m.position); scene.add(edge);
-  const el=document.createElement('div'); el.className='zlabel'; el.innerHTML=`<div class="n">${z.name}</div><div class="w">${z.w.toFixed(2)}×</div>`;
-  labelsLayer.appendChild(el); labelEls[z.id]=el;
+// store identity — fixtures differ by vertical (independent of the room theme)
+const STORE_STYLE={
+  cafe:        { fixture:0x6b4a2e, metal:0x8a6f52, accent:0x00ED64, menu:true,  cooler:false },
+  convenience: { fixture:0x9aa6ae, metal:0xb0b8c0, accent:0x4FC3E8, menu:false, cooler:true },
+};
+let floor, grid, walls, wallSegs=[];
+function buildRoom(){
+  if(!GL)return;
+  const t=THEMES[S.theme];
+  scene.background=new THREE.Color(t.bg);
+  amb.intensity=t.amb; dir.intensity=t.dir;
+  const W=S.roomW, D=S.roomD;
+  if(floor){scene.remove(floor);floor.geometry.dispose();floor.material.dispose();}
+  floor=new THREE.Mesh(new THREE.PlaneGeometry(W,D),new THREE.MeshStandardMaterial({color:t.floor,roughness:1}));
+  floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
+  if(grid){scene.remove(grid);grid.geometry.dispose();}
+  grid=new THREE.GridHelper(Math.max(W,D),Math.max(W,D),t.grid1,t.grid2); grid.position.y=0.012; scene.add(grid);
+  // walls — transparent; the loop auto-fades whichever sit between camera & interior (dollhouse UX)
+  walls.clear(); wallSegs=[];
+  const h=2.4, th=0.12;
+  const mk=(w,x,z,rot,nx,nz)=>{
+    const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,th), new THREE.MeshStandardMaterial({color:t.wall,roughness:.95,side:THREE.DoubleSide,transparent:true,opacity:0.8}));
+    m.position.set(x,h/2,z); m.rotation.y=rot; m.receiveShadow=true; m.userData.normal={x:nx,z:nz}; walls.add(m); wallSegs.push(m);
+  };
+  mk(W,0,-D/2,0, 0,-1);            // back
+  mk(D,-W/2,0,Math.PI/2, -1,0);    // left
+  mk(D, W/2,0,Math.PI/2, 1,0);     // right
+  const gap=2.2, seg=(W-gap)/2;    // front leaves a door gap
+  mk(seg,(-W/2+seg/2),D/2,0, 0,1);
+  mk(seg,( W/2-seg/2),D/2,0, 0,1);
+  buildHeatmap();
 }
-// entrance arrow (flow direction)
-const arrowMat=new THREE.MeshStandardMaterial({color:0x00ED64,transparent:true,opacity:.5});
-const arrow=new THREE.Mesh(new THREE.ConeGeometry(0.5,1.2,4),arrowMat); arrow.position.set(0,0.6,12); arrow.rotation.x=Math.PI; scene.add(arrow);
 
-// product boxes
-let prodMeshes=[]; let selected=null;
-function rebuild(){
-  prodMeshes.forEach(m=>{scene.remove(m); m.geometry.dispose(); m.material.dispose();}); prodMeshes=[];
-  const byZone={}; for(const p of PRODUCTS){(byZone[place[p.id]]=byZone[place[p.id]]||[]).push(p);}
-  for(const zid in byZone){ const z=ZI[zid]; const arr=byZone[zid];
+// ── zone fixtures (procedural store props) + labels ──────────────────────────
+const zoneMeshes={}, labelEls={}, zoneSurfaceY={}, zoneTopY={};
+const labelsLayer=$('#labels');
+let zonePick=[];
+const smat=(color,rough=.7,metal=.05)=>new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal});
+const fixtureType=z=>z.checkout?'counter':z.entrance?'table':z.endcap?'endcap':'shelf';
+function buildZones(){
+  if(!GL)return;
+  for(const id in zoneMeshes){ scene.remove(zoneMeshes[id]); labelEls[id]?.remove(); }
+  Object.keys(zoneMeshes).forEach(k=>delete zoneMeshes[k]); zonePick=[];
+  const style=STORE_STYLE[S.store]||STORE_STYLE.cafe;
+  const wood=()=>smat(style.fixture,.82), metalM=()=>smat(style.metal,.4,.5), deck=()=>smat(0x2b333a,.55);
+  for(const z of zones){
+    const g=new THREE.Group(); g.position.set(z.x,0,z.z);
+    const ft=fixtureType(z);
+    const {sx,sz}=M.fixtureSize(S.roomW,S.roomD);
+    const tag=m=>{ m.castShadow=true; m.receiveShadow=true; m.userData={type:'zone',id:z.id}; zonePick.push(m); g.add(m); return m; };
+    let surfaceY=1.0, topY=1.6;
+    if(ft==='counter'){
+      tag(new THREE.Mesh(new THREE.BoxGeometry(sx,1.0,sz*0.8), wood())).position.y=0.5;
+      tag(new THREE.Mesh(new THREE.BoxGeometry(sx+0.12,0.08,sz*0.8+0.12), deck())).position.y=1.04;
+      tag(new THREE.Mesh(new THREE.BoxGeometry(0.5,0.34,0.42), smat(0x1b2127,.5))).position.set(sx*0.28,1.25,0);
+      tag(new THREE.Mesh(new THREE.BoxGeometry(0.05,0.3,0.36), smat(style.accent,.3,.2))).position.set(sx*0.28-0.26,1.32,0);
+      if(style.menu){ // café hanging menu board
+        tag(new THREE.Mesh(new THREE.BoxGeometry(sx*0.92,0.72,0.06), smat(0x14100c,.55))).position.set(0,2.05,-sz*0.36);
+        [[0.14,0.5],[-0.02,0.62],[-0.18,0.44]].forEach(([dy,ww])=>{ const ln=new THREE.Mesh(new THREE.BoxGeometry(sx*ww,0.045,0.02), smat(style.accent,.4,.2)); ln.position.set(-sx*0.14,2.05+dy,-sz*0.36+0.05); g.add(ln); });
+      }
+      surfaceY=1.08; topY=style.menu?2.5:1.55;
+    } else if(ft==='table'){
+      tag(new THREE.Mesh(new THREE.BoxGeometry(sx,0.1,sz), wood())).position.y=0.82;
+      [[-sx/2+0.2,-sz/2+0.2],[sx/2-0.2,-sz/2+0.2],[-sx/2+0.2,sz/2-0.2],[sx/2-0.2,sz/2-0.2]].forEach(([lx,lz])=>{
+        tag(new THREE.Mesh(new THREE.BoxGeometry(0.1,0.82,0.1), metalM())).position.set(lx,0.41,lz); });
+      surfaceY=0.88; topY=1.3;
+    } else {
+      const H = z.vTier==='low'?1.05 : z.vTier==='waist'?1.55 : 2.05;
+      tag(new THREE.Mesh(new THREE.BoxGeometry(sx,H,0.08), wood())).position.set(0,H/2,-sz/2+0.04);
+      [-sx/2+0.04, sx/2-0.04].forEach(lx=>{ tag(new THREE.Mesh(new THREE.BoxGeometry(0.08,H,sz), metalM())).position.set(lx,H/2,0); });
+      const boardYs = z.vTier==='low'?[0.34,0.82] : z.vTier==='waist'?[0.5,1.0,1.44] : [0.62,1.14,1.66];
+      boardYs.forEach(by=>{ tag(new THREE.Mesh(new THREE.BoxGeometry(sx-0.06,0.06,sz-0.1), wood())).position.set(0,by,0); });
+      if(style.cooler && ft!=='endcap'){ // convenience: glass chiller door on the front
+        const gl=new THREE.Mesh(new THREE.BoxGeometry(sx-0.05,H-0.12,0.03), new THREE.MeshStandardMaterial({color:0xbfe6f2,transparent:true,opacity:0.14,roughness:.08,metalness:.25}));
+        gl.position.set(0,H/2,sz/2-0.05); g.add(gl);
+      }
+      surfaceY = boardYs[boardYs.length-1]+0.03; topY=H;
+      if(ft==='endcap'){ tag(new THREE.Mesh(new THREE.BoxGeometry(sx+0.08,0.34,0.12), smat(style.accent,.4,.2))).position.set(0,H+0.02,-sz/2+0.06); topY=H+0.34; }
+    }
+    scene.add(g); zoneMeshes[z.id]=g; zoneSurfaceY[z.id]=surfaceY; zoneTopY[z.id]=topY;
+    const el=document.createElement('div'); el.className='zlabel';
+    const eff=M.placementMult({velocity:1,margin:0,impulse:.5,cheap:true,destination:true},z,S.ctx)||1;
+    el.innerHTML=`<div class="n">${z.name}</div><div class="w">${eff>=1?'▲':'▽'} ${eff.toFixed(2)}×</div>`;
+    labelsLayer.appendChild(el); labelEls[z.id]=el;
+  }
+}
+
+// ── heatmap texture ──────────────────────────────────────────────────────────
+let heatMesh=null;
+function heatColor(v){ // v 0..1 -> [r,g,b]
+  const stops=[[27,58,107],[31,138,90],[224,162,61],[240,102,79]];
+  const x=clamp(v,0,1)*(stops.length-1), i=Math.floor(x), f=x-i, a=stops[i], b=stops[Math.min(i+1,stops.length-1)];
+  return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f];
+}
+function buildHeatmap(){
+  if(!GL)return;
+  if(heatMesh){scene.remove(heatMesh);heatMesh.material.map?.dispose();heatMesh.material.dispose();heatMesh.geometry.dispose();heatMesh=null;}
+  const N=180, cv=document.createElement('canvas'); cv.width=cv.height=N; const g=cv.getContext('2d');
+  const img=g.createImageData(N,N), W=S.roomW, D=S.roomD;
+  const field=new Float32Array(N*N); let mx=1e-6;
+  for(const z of zones){
+    const u=(z.x+W/2)/W, v=(z.z+D/2)/D, cx=u*N, cy=v*N, amp=z.traffic*z.vis, rad=N*0.17;
+    for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+      const dx=x-cx,dy=y-cy,dd=dx*dx+dy*dy, val=amp*Math.exp(-dd/(2*rad*rad));
+      const idx=y*N+x; field[idx]+=val; if(field[idx]>mx)mx=field[idx];
+    }
+  }
+  for(let i=0;i<N*N;i++){
+    const v=field[i]/mx, [r,gg,b]=heatColor(v), a=clamp(v*1.15,0,1);
+    img.data[i*4]=r; img.data[i*4+1]=gg; img.data[i*4+2]=b; img.data[i*4+3]=Math.round(a*205);
+  }
+  g.putImageData(img,0,0);
+  const tex=new THREE.CanvasTexture(cv); tex.needsUpdate=true;
+  heatMesh=new THREE.Mesh(new THREE.PlaneGeometry(W,D),new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false}));
+  heatMesh.rotation.x=-Math.PI/2; heatMesh.position.y=0.03; heatMesh.visible=S.heat; scene.add(heatMesh);
+}
+
+// ── product props (persistent groups, glide to target) ───────────────────────
+const prodMeshes={}; let prodPick=[];
+function makeProduct(p){
+  const g=new THREE.Group();
+  const f=clamp(2+Math.round(p.velocity*3),2,5);          // facings (fill the shelf; higher-velocity = more)
+  for(let k=0;k<f;k++){ const unit=buildProp(p); unit.position.x=(k-(f-1)/2)*0.36; g.add(unit); }
+  g.userData={type:'product',id:p.id,facings:f};
+  return g;
+}
+function buildProp(p){
+  const g=new THREE.Group(); const c=p.color;
+  const P=(col,r=.55,me=.05)=>new THREE.MeshStandardMaterial({color:col,roughness:r,metalness:me,emissive:0x000000});
+  const add=(geo,material)=>{ const m=new THREE.Mesh(geo,material); m.castShadow=true; m.userData={type:'product',id:p.id}; g.add(m); prodPick.push(m); return m; };
+  switch(p.kind){
+    case 'cup': add(new THREE.CylinderGeometry(0.22,0.16,0.6,20), P(c)).position.y=0.3;
+                add(new THREE.CylinderGeometry(0.24,0.24,0.08,20), P(0xf0f0f0,.4)).position.y=0.63;
+                add(new THREE.CylinderGeometry(0.05,0.05,0.14,10), P(0xf0f0f0,.4)).position.y=0.72; break;
+    case 'can': add(new THREE.CylinderGeometry(0.2,0.2,0.56,20), P(c,.35,.55)).position.y=0.28;
+                add(new THREE.CylinderGeometry(0.2,0.2,0.04,20), P(0xcfd6dc,.4,.6)).position.y=0.56; break;
+    case 'bottle': add(new THREE.CylinderGeometry(0.19,0.19,0.5,18), P(c,.2,.05)).position.y=0.25;
+                   add(new THREE.CylinderGeometry(0.09,0.17,0.2,14), P(c,.2,.05)).position.y=0.6;
+                   add(new THREE.CylinderGeometry(0.09,0.09,0.08,12), P(0x2b6cae,.4)).position.y=0.74; break;
+    case 'pastry': { const m=add(new THREE.BoxGeometry(0.5,0.34,0.42), P(c,.85)); m.position.y=0.17; m.rotation.y=0.4; break; }
+    case 'croissant': { const m=add(new THREE.TorusGeometry(0.24,0.12,10,18,Math.PI*1.25), P(c,.75)); m.position.y=0.18; m.rotation.x=Math.PI/2; break; }
+    case 'cookie': add(new THREE.CylinderGeometry(0.3,0.3,0.12,22), P(c,.85)).position.y=0.06; break;
+    case 'card': add(new THREE.BoxGeometry(0.5,0.32,0.03), P(c,.3,.35)).position.y=0.42;
+                 add(new THREE.BoxGeometry(0.16,0.42,0.16), P(0x2a2f33,.6)).position.y=0.21; break;
+    case 'onigiri': { const s=new THREE.Shape(); s.moveTo(-0.28,0); s.lineTo(0.28,0); s.lineTo(0,0.5); s.closePath();
+                      const m=add(new THREE.ExtrudeGeometry(s,{depth:0.34,bevelEnabled:false}), P(0xf4f1e8,.9)); m.position.set(0,0.02,-0.17);
+                      add(new THREE.BoxGeometry(0.5,0.2,0.36), P(0x2b333a,.7)).position.y=0.1; break; }
+    case 'noodlecup': add(new THREE.CylinderGeometry(0.26,0.18,0.5,20), P(c,.5)).position.y=0.25;
+                      add(new THREE.CylinderGeometry(0.28,0.28,0.05,20), P(0xf0eadb,.5)).position.y=0.52; break;
+    case 'gumbox': add(new THREE.BoxGeometry(0.4,0.4,0.14), P(c,.4)).position.y=0.2; break;
+    case 'bar': add(new THREE.BoxGeometry(0.44,0.5,0.12), P(c,.4)).position.y=0.25; break;
+    case 'smallbox': add(new THREE.BoxGeometry(0.44,0.42,0.32), P(c,.5)).position.y=0.21; break;
+    default: add(new THREE.BoxGeometry(0.5,0.5,0.5), P(c)).position.y=0.25;
+  }
+  g.userData={type:'product',id:p.id};
+  return g;
+}
+function syncMeshes(animate=true){
+  if(!GL)return;
+  for(const id in prodMeshes){ if(!PI[id]){ const g=prodMeshes[id]; scene.remove(g); g.traverse(m=>{m.geometry?.dispose?.(); m.material?.dispose?.();}); delete prodMeshes[id]; } }
+  prodPick=[];
+  const byZone={}; for(const p of products){(byZone[S.place[p.id]]=byZone[S.place[p.id]]||[]).push(p);}
+  for(const zid in byZone){
+    const z=M.zoneById(zones,zid); if(!z)continue; const arr=byZone[zid], n=arr.length;
+    const {sz}=M.fixtureSize(S.roomW,S.roomD), rowPitch=Math.min(0.6,(sz-0.4)/Math.max(n,1));
     arr.forEach((p,i)=>{
-      const cx=(i%3-1)*1.15, cz=(Math.floor(i/3)-0.5)*1.15;
-      const mat=new THREE.MeshStandardMaterial({color:p.color,roughness:.5,emissive:0x000000});
-      const box=new THREE.Mesh(new THREE.BoxGeometry(1,1,1),mat);
-      box.position.set(z.x+cx,0.9,z.z+cz); box.userData={type:'product',id:p.id};
-      scene.add(box); prodMeshes.push(box);
+      const oz=n>1?(i-(n-1)/2)*rowPitch:0;
+      const target=new THREE.Vector3(z.x, zoneSurfaceY[zid]??0.9, z.z+oz);
+      let g=prodMeshes[p.id];
+      if(!g){ g=makeProduct(p); g.position.copy(target); scene.add(g); prodMeshes[p.id]=g; }
+      else { g.traverse(m=>{ if(m.isMesh) prodPick.push(m); }); }
+      g.userData.target=target;
+      if(!animate) g.position.copy(target);
     });
   }
-  applySelectHighlight();
+  highlight();
 }
-function applySelectHighlight(){ prodMeshes.forEach(m=>m.material.emissive.setHex(m.userData.id===selected?0x224422:0x000000)); prodMeshes.forEach(m=>m.scale.setScalar(m.userData.id===selected?1.15:1)); }
+function highlight(){
+  if(!GL)return;
+  for(const id in prodMeshes){ const g=prodMeshes[id], on=id===S.selected;
+    g.traverse(m=>{ if(m.isMesh&&m.material.emissive) m.material.emissive.setHex(on?0x1c5a30:0x000000); });
+    g.scale.setScalar(on?1.14:1);
+  }
+}
 
-// raycast picking
+// ── shopper mission UI + grounded travel-path indicator ──────────────────────
+function buildMissionPills(){
+  const wrap=$('#missionPills'); if(!wrap)return; wrap.innerHTML='';
+  (M.MISSIONS[S.store]||[]).forEach(m=>{
+    const b=document.createElement('button'); b.className='btn'+(m.id===S.mission?' on':''); b.textContent=m.name;
+    b.onclick=()=>{ S.mission=m.id; buildMissionPills(); refreshPath(); invalidate(); };
+    wrap.appendChild(b);
+  });
+}
+function updatePathIndicator(){
+  const rr=S.route||computeRoute(); const el=$('#pathInd'); if(!el)return;
+  if(!rr){ el.innerHTML=''; return; }
+  let before='';
+  if(S.pinned&&S.pinned.route){ const d=rr.distance-S.pinned.route.distance, z=rr.passedHighMargin.length-S.pinned.route.passed;
+    before=`<div class="pd">vs before: <b class="${d>=0?'up':'dn'}">${d>=0?'+':''}${d.toFixed(1)} m</b> · high-margin zones <b class="${z>=0?'up':'dn'}">${z>=0?'+':''}${z}</b></div>`; }
+  el.innerHTML =
+    `<div class="pd"><b style="color:var(--ink)">${rr.distance} m</b> travel · passes <b style="color:var(--ink)">${rr.passedHighMargin.length}/${rr.totalHighMargin}</b> high-margin zones</div>`
+    + before
+    + `<div class="pnote">Longer, purposeful paths expose shoppers to more zones → more impulse <b>for the store</b> (Hui 2013, directional); shorter is nicer <b>for the shopper</b>. Path geometry is computed; the spend effect is directional — <b>not a calibrated optimum</b>.</div>`;
+}
+
+// ── shopper + travel path (walks the current mission's real route) ────────────
+let pathGroup=null, shopper=null, walkCurve=null, shopperT=0;
+function makeShopper(){
+  // Compact floor "customer token" (a map-style marker), not a tall human — so it
+  // reads as a route animation and never looks like a person tunnelling a shelf.
+  const g=new THREE.Group();
+  const disc=new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.32,0.03,28), new THREE.MeshBasicMaterial({color:0xffcf5a,transparent:true,opacity:.5}));
+  disc.position.y=0.02; g.add(disc);
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(0.3,0.03,8,28), new THREE.MeshBasicMaterial({color:0xffb020,transparent:true,opacity:.8}));
+  ring.rotation.x=Math.PI/2; ring.position.y=0.03; g.add(ring);
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.2,0.34,16), new THREE.MeshStandardMaterial({color:0x3a6ea5,roughness:.55})); body.position.y=0.2; body.castShadow=true; g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.12,16,12), new THREE.MeshStandardMaterial({color:0xE0B48C,roughness:.6})); head.position.y=0.46; head.castShadow=true; g.add(head);
+  return g;
+}
+function buildPath(){
+  if(!GL)return;
+  if(pathGroup){ scene.remove(pathGroup); pathGroup.traverse(m=>{m.geometry?.dispose?.();m.material?.dispose?.();}); }
+  const rr = S.route || computeRoute();
+  const style=STORE_STYLE[S.store]||STORE_STYLE.cafe;
+  pathGroup=new THREE.Group();
+  if(rr && rr.route.length>=2){
+    const pts = rr.route.map(z=>new THREE.Vector3(z.x,0.06,z.z));
+    walkCurve = new THREE.CatmullRomCurve3(pts, true, 'catmullrom', 0.35);
+    pathGroup.add(new THREE.Mesh(new THREE.TubeGeometry(walkCurve,120,0.045,6,true), new THREE.MeshBasicMaterial({color:style.accent,transparent:true,opacity:0.18})));
+    for(let i=0;i<20;i++){ const u=i/20, p=walkCurve.getPointAt(u), t=walkCurve.getTangentAt(u);
+      const a=new THREE.Mesh(new THREE.ConeGeometry(0.11,0.26,4), new THREE.MeshBasicMaterial({color:style.accent,transparent:true,opacity:.32}));
+      a.position.set(p.x,0.09,p.z); a.rotation.x=Math.PI/2; a.rotation.z=-Math.atan2(t.z,t.x); pathGroup.add(a);
+    }
+    rr.route.filter(z=>z.id).forEach(z=>{ const dot=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.03,18), new THREE.MeshBasicMaterial({color:style.accent,transparent:true,opacity:.5}));
+      dot.position.set(z.x,0.045,z.z); pathGroup.add(dot); });
+  } else walkCurve=null;
+  scene.add(pathGroup);
+  if(!shopper){ shopper=makeShopper(); scene.add(shopper); }
+}
+
+// ── render loop (on-demand: render while moving/animating) ────────────────────
+let dirty=true; const invalidate=()=>{ if(GL) dirty=true; };
+let camTween=null;
+function tweenCamera(pos,tgt,dur=620){ if(!GL)return; controls.enabled=false; camTween={p0:camera.position.clone(),p1:pos.clone(),t0:controls.target.clone(),t1:tgt.clone(),start:performance.now(),dur}; invalidate(); }
+const easeIO=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const _v=new THREE.Vector3();
+function updateLabels(){
+  for(const z of zones){ const el=labelEls[z.id]; if(!el)continue;
+    _v.set(z.x,(zoneTopY[z.id]||1.7)+0.3,z.z).project(camera);
+    const nx=_v.x*.5+.5, ny=-_v.y*.5+.5, vis=_v.z<1&&nx>-.03&&nx<1.03&&ny>-.03&&ny<1.03;
+    el.style.opacity=vis?'1':'0';
+    el.style.left=(nx*stage.clientWidth)+'px'; el.style.top=(ny*stage.clientHeight)+'px';
+  }
+}
+function loop(){
+  requestAnimationFrame(loop);
+  let anim=false;
+  // camera tween (controls disabled while it runs, so no fighting)
+  if(camTween){ const k=clamp((performance.now()-camTween.start)/camTween.dur,0,1), e=easeIO(k);
+    camera.position.lerpVectors(camTween.p0,camTween.p1,e); controls.target.lerpVectors(camTween.t0,camTween.t1,e);
+    camera.lookAt(controls.target);
+    if(k>=1){ camTween=null; controls.enabled=true; } anim=true; }
+  // product glides
+  for(const id in prodMeshes){ const m=prodMeshes[id], t=m.userData.target; if(!t)continue;
+    if(m.position.distanceToSquared(t)>1e-5){ m.position.lerp(t,0.18); anim=true; } else m.position.copy(t); }
+  // shopper walks the circulation loop
+  if(shopper&&walkCurve){ shopperT=(shopperT+0.0009)%1; const p=walkCurve.getPointAt(shopperT), tg=walkCurve.getTangentAt(shopperT);
+    shopper.position.set(p.x,0,p.z); shopper.rotation.y=Math.atan2(tg.x,tg.z); anim=true; }
+  // dollhouse: fade the walls that sit between the camera and the room interior
+  if(wallSegs.length){ const L=Math.hypot(camera.position.x,camera.position.z)||1, dx=camera.position.x/L, dz=camera.position.z/L;
+    for(const m of wallSegs){ const n=m.userData.normal, dot=n.x*dx+n.z*dz, target=clamp(0.8-Math.max(0,dot)*1.25,0.03,0.8);
+      if(Math.abs(target-m.material.opacity)>0.002){ m.material.opacity+=(target-m.material.opacity)*0.25; anim=true; } }
+  }
+  const moved=camTween?false:controls.update();
+  if(dirty||anim||moved){ updateLabels(); renderer.render(scene,camera); dirty=false; }
+}
+
+// ── scoring HUD ──────────────────────────────────────────────────────────────
+function curScore(){ return M.storeScore(S.place,zones,products,S.ctx).score; }
+function curAlign(){ return M.alignment(curScore(),S.bounds); }
+function verdictText(a){
+  if(a>=88) return 'Excellent — very close to the evidence-optimal layout.';
+  if(a>=68) return 'Strong. A few moves would tighten it further.';
+  if(a>=45) return 'Middling — real alignment gains are available.';
+  if(a>=22) return 'Weak. Your best space is working against you.';
+  return 'Poorly aligned — prime zones are wasted.';
+}
+function refresh(){
+  const a=curAlign(), r=Math.round(a);
+  const span=Math.max(1e-6, S.bounds ? S.bounds.best-S.bounds.worst : 1); // raw pts → alignment pts
+  $('#ring').style.setProperty('--v',a);
+  $('#ringNum').textContent=r; $('#verdict').textContent=verdictText(a);
+  // advisor
+  const adv=M.advise(S.place,zones,products,S.ctx);
+  const moves=adv.filter(x=>!x.warn), warns=adv.filter(x=>x.warn);
+  $('#advN').textContent=adv.length?`· ${adv.length}`:'';
+  const badge=id=>{const rel=M.PRINCIPLES[id]?.reliability||'input';const nm={strong:'Strong',peer:'Peer-reviewed',meta:'Meta-analysis',heuristic:'Heuristic',input:'Assumption'}[rel];return `<span class="rb ${rel}">${nm}</span>`;}
+  let html=moves.map(m=>`<div class="adv"><div class="at">Move <b>${m.p.name}</b> → <b>${m.z.name}</b> — ${m.reason}. <span class="gain">(+${Math.max(1,Math.round(m.gain*100/span))} pts)</span></div><div class="ap">${badge(m.principle)} ${M.PRINCIPLES[m.principle]?.label||''}</div></div>`).join('');
+  html+=warns.map(w=>`<div class="adv warn"><div class="at"><b>${w.p.name}</b> ${w.reason}</div><div class="ap">${badge('lowstock')} Low-stock opportunity cost</div></div>`).join('');
+  if(!html) html='<div class="empty">Well-placed — no improving move remains ✓</div>';
+  $('#advice').innerHTML=html;
+  // selected product breakdown
+  renderProdBreak();
+  // compare bar
+  if(S.pinned){ const d=Math.round(a - S.pinned.align);
+    $('#compareBar').classList.add('show');
+    $('#compareTxt').innerHTML=`before <b>${Math.round(S.pinned.align)}</b> → now <b>${r}</b> <span class="d ${d>=0?'up':'dn'}">${d>=0?'+':''}${d}</span> <span style="color:var(--sub);font-size:10.5px">· the model's directional bet on revenue — direction, not amount</span>`;
+  } else $('#compareBar').classList.remove('show');
+  // shopper path indicator (kept out of the score, per the evidence guardrail)
+  refreshPath();
+  // drawer if open
+  if($('#drawer').classList.contains('show')) renderDrawer();
+  updateURL(); invalidate();
+}
+function renderProdBreak(){
+  const el=$('#prodBreak');
+  if(!S.selected){ el.innerHTML=''; return; }
+  const p=PI[S.selected], z=M.zoneById(zones,S.place[p.id]);
+  const mults=M.placementMults(p,z,S.ctx);
+  const sc=M.storeScore(S.place,zones,products,S.ctx).perProduct[p.id];
+  const chips=mults.map(mm=>`<span class="chip">${M.PRINCIPLES[mm.pid]?.label||mm.pid} ×${mm.mult.toFixed(2)}</span>`).join('');
+  el.innerHTML=`<b style="color:var(--ink)">${p.name}</b> in <b style="color:var(--ink)">${z.name}</b>${chips?'<br>'+chips:''}<br><span style="color:var(--sub)">placement score ≈ ${Math.round(sc?.score||0)}</span>`;
+}
+
+// ── evidence drawer ──────────────────────────────────────────────────────────
+const RELNAME={strong:'Strong · peer-reviewed',peer:'Peer-reviewed',meta:'Meta-analysis',heuristic:'Heuristic / lore',input:'Assumption'};
+function relBadge(rel){return `<span class="rb ${rel}">${RELNAME[rel]}</span>`;}
+function renderDrawer(){
+  const a=curAlign(), con=M.contributions(S.place,zones,products,S.ctx);
+  const span=(S.bounds.best-S.bounds.worst)||1;
+  const toAlign=pts=>100*pts/span;
+  const body=$('#drawerBody');
+  const rows=con.rows.map(r=>({...r, dA:toAlign(r.points), P:M.PRINCIPLES[r.id]}))
+    .sort((x,y)=>Math.abs(y.points)-Math.abs(x.points));
+  let h=`<div class="align-hero"><div class="big">${Math.round(a)}</div><div class="u">/ 100 alignment</div></div>`;
+  h+=`<div class="norm-note"><b>How this 0–100 is defined:</b> 100 = the evidence-optimal layout the model can find for this store; 0 = the worst placement. Your layout sits in between. This normalization is a <b>modeling choice</b> for comparability — it is an alignment index, <b>not a predicted sales figure</b>.</div>`;
+  h+=`<div class="norm-note"><b>How the rules combine (the load-bearing assumption):</b> each rule's effect is applied <b>multiplicatively as if independent</b>, then <b>summed linearly across products</b>. Coefficients are transferred from <b>different field studies</b> (mostly US/EU grocery/CPG) and the combined score has <b>never been calibrated against real sales</b>. Real position/adjacency/facing effects interact rather than multiply cleanly — so treat this as an evidence-<i>aligned</i> index, not a sales model.</div>`;
+  h+=`<div class="dsection">What each rule contributes (leave-one-out)</div>`;
+  for(const r of rows){
+    if(!r.P)continue;
+    const cls=r.points>0.5?'pos':r.points<-0.5?'neg':'zero', sign=r.points>=0?'+':'';
+    const flags=[];
+    if(r.P.heuristic) flags.push('<span class="flag heu">heuristic magnitude</span>');
+    if(r.id==='entrance'&&S.ctx.decompression) flags.push('<span class="flag con">debunked penalty ON</span>');
+    h+=`<div class="prow"><div class="top">${relBadge(r.P.reliability)} <span class="pname">${r.P.label}</span>`
+      +`<span class="pts ${cls}">${Math.abs(r.dA)<0.05?'0':(sign+Math.abs(r.dA).toFixed(1))} <span style="font-size:10px;color:var(--sub);font-weight:600">pts</span></span></div>`
+      +`${flags.length?'<div style="margin-top:6px;display:flex;gap:6px">'+flags.join('')+'</div>':''}`
+      +`<div class="coef">${r.P.coefText}</div><div class="range">sensitivity: ${r.P.rangeText}</div>`
+      +`<div class="tip">${r.P.tip}</div>`
+      +`<details class="cites"><summary>${r.P.cites.length} citation${r.P.cites.length>1?'s':''}</summary><ul>${r.P.cites.map(c=>`<li>${c}</li>`).join('')}</ul></details></div>`;
+  }
+  // foundational inputs
+  const IP=M.PRINCIPLES.inputs;
+  h+=`<div class="dsection">Foundational inputs (not evidence)</div>`;
+  h+=`<div class="prow"><div class="top">${relBadge('input')} <span class="pname">${IP.label}</span></div>`
+    +`<div class="coef">${IP.coefText}</div><div class="range">${IP.rangeText}</div><div class="tip">${IP.tip}</div>`
+    +`<details class="cites"><summary>note</summary><ul>${IP.cites.map(c=>`<li>${c}</li>`).join('')}</ul></details></div>`;
+  // shopper path — directional indicator, explicitly separate from the 0-100 score
+  const rr=S.route||computeRoute();
+  if(rr){
+    h+=`<div class="dsection">Shopper path — directional indicator (NOT in the score)</div>`;
+    h+=`<div class="prow"><div class="top">${relBadge('peer')} <span class="pname">Travel distance → unplanned spend</span></div>`
+      +`<div class="coef">this layout: ${rr.distance} m · passes ${rr.passedHighMargin.length}/${rr.totalHighMargin} high-margin zones (${currentMission()?.name||''})</div>`
+      +`<div class="range">directional, single-study, context-specific — not a calibrated per-meter effect</div>`
+      +`<div class="tip">Longer, purposeful paths expose shoppers to more zones and raise unplanned spend for the store (directional); shorter is better for the shopper. Path geometry is computed; a perfect loop would be unrealistic — real shoppers make short excursions, so the shopper here visits only its goal zones.</div>`
+      +`<details class="cites"><summary>2 citations</summary><ul><li>Hui, Inman, Huang & Suher (2013), In-Store Travel Distance & Unplanned Spending, J. Marketing 77(2):1-16</li><li>Larson, Bradlow & Fader (2005), An Exploratory Look at Supermarket Shopping Paths, IJRM 22(4):395-414</li></ul></details></div>`;
+  }
+  h+=`<div class="badge-legend">${['strong','peer','meta','heuristic','input'].map(relBadge).join('')}</div>`;
+  body.innerHTML=h;
+}
+window._openDrawer=()=>{renderDrawer();$('#scrim').classList.add('show');$('#drawer').classList.add('show');};
+window._closeDrawer=()=>{$('#scrim').classList.remove('show');$('#drawer').classList.remove('show');};
+addEventListener('keydown',e=>{if(e.key==='Escape')window._closeDrawer();});
+
+// ── actions ──────────────────────────────────────────────────────────────────
+window._optimize=()=>{
+  const before={...S.place}, r=M.optimize(zones,products,S.ctx,+1);
+  const moved=products.filter(p=>before[p.id]!==r.place[p.id]).map(p=>`${p.name}→${M.zoneById(zones,r.place[p.id]).name}`);
+  S.place=r.place; S.selected=null; syncMeshes(); refresh(); syncSel();
+  $('#optsum').innerHTML=moved.length?`✨ Optimized to <b>${Math.round(curAlign())}/100</b> · moved ${moved.slice(0,3).join(', ')}${moved.length>3?` +${moved.length-3} more`:''}`:'✨ Already at the best layout the model can find';
+};
+window._furnish=()=>{ S.place={...M.STORES[S.store].layout}; S.selected=null; syncMeshes(); refresh(); syncSel(); $('#optsum').textContent=''; };
+window._pin=()=>{ const rr=S.route||computeRoute(); S.pinned={place:{...S.place}, align:curAlign(), route:{distance:rr.distance, passed:rr.passedHighMargin.length}}; $('#pinBtn').textContent='Pinned ✓'; setTimeout(()=>$('#pinBtn').textContent='Pin as “before”',1200); refresh(); };
+window._restore=()=>{ if(!S.pinned)return; S.place={...S.pinned.place}; S.pinned=null; S.selected=null; syncMeshes(); refresh(); syncSel(); };
+window._share=()=>{ updateURL(); navigator.clipboard?.writeText(location.href).then(()=>{const b=$('#shareBtn');b.textContent='Copied ✓';setTimeout(()=>b.textContent='Share ↗',1300);}); };
+window._toggle=(k)=>{
+  if(k==='heat'){ S.heat=!S.heat; if(heatMesh)heatMesh.visible=S.heat; $('#tgHeat').classList.toggle('on',S.heat); $('#tgHeat').setAttribute('aria-checked',S.heat); $('#legend').classList.toggle('show',S.heat); invalidate(); return; }
+  if(k==='decomp'){ S.ctx.decompression=!S.ctx.decompression; $('#tgDecomp').classList.toggle('on',S.ctx.decompression); $('#tgDecomp').setAttribute('aria-checked',S.ctx.decompression); $('#decompTag').style.display=S.ctx.decompression?'inline-block':'none'; recomputeBounds(); buildZones(); refresh(); return; }
+  if(k==='circ'){ S.ctx.circulation=S.ctx.circulation==='right'?'clockwise':'right'; const on=S.ctx.circulation==='clockwise'; $('#tgCirc').classList.toggle('on',on); $('#tgCirc').setAttribute('aria-checked',on); recomputeBounds(); buildZones(); refresh(); return; }
+};
+function syncSel(){ $('#sel').innerHTML='Selected: <b>'+(S.selected?PI[S.selected].name:'none')+'</b>'+(S.selected?' — now click a zone':''); }
+
+// store segmented control
+function buildStoreSeg(){
+  const seg=$('#storeSeg'); seg.innerHTML='';
+  for(const k in M.STORES){ const b=document.createElement('button'); b.textContent=`${M.STORES[k].icon} ${M.STORES[k].label}`;
+    b.className=k===S.store?'sel':''; b.onclick=()=>{ if(k===S.store)return; loadStore(k); buildStoreSeg(); buildMissionPills(); buildZones(); syncMeshes(false); refresh(); syncSel(); $('#optsum').textContent=''; };
+    seg.appendChild(b);
+  }
+}
+// view + theme
+$('#viewSeg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return;
+  S.view=b.dataset.v; [...$('#viewSeg').children].forEach(x=>x.classList.toggle('sel',x===b));
+  if(S.view==='top') tweenCamera(new THREE.Vector3(0.001,Math.max(S.roomW,S.roomD)*1.55,0.001),new THREE.Vector3(0,0,0));
+  else tweenCamera(new THREE.Vector3(13,10,15),new THREE.Vector3(0,1,0));
+});
+$('#themeSel').addEventListener('change',e=>{ S.theme=e.target.value; buildRoom(); buildZones(); invalidate(); });
+// room sliders (visual only — geometry not yet scored; that's v2 floor-plan)
+$('#roomW').addEventListener('input',e=>{ S.roomW=+e.target.value; $('#roomWv').textContent=S.roomW+' m'; zones=M.buildZones(S.roomW,S.roomD); buildRoom(); buildZones(); syncMeshes(); refreshPath(); invalidate(); });
+$('#roomD').addEventListener('input',e=>{ S.roomD=+e.target.value; $('#roomDv').textContent=S.roomD+' m'; zones=M.buildZones(S.roomW,S.roomD); buildRoom(); buildZones(); syncMeshes(); refreshPath(); invalidate(); });
+
+// keyboard on switches
+document.querySelectorAll('.switch').forEach(sw=>sw.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();sw.click();}}));
+
+// ── raycast picking ──────────────────────────────────────────────────────────
 const ray=new THREE.Raycaster(), mouse=new THREE.Vector2(); let downXY=null;
 canvas.addEventListener('pointerdown',e=>downXY=[e.clientX,e.clientY]);
 canvas.addEventListener('pointerup',e=>{
-  if(!downXY||Math.hypot(e.clientX-downXY[0],e.clientY-downXY[1])>6) return; // ignore drags (orbit)
+  if(!GL)return;
+  if(!downXY||Math.hypot(e.clientX-downXY[0],e.clientY-downXY[1])>6)return;
   const r=canvas.getBoundingClientRect();
   mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
   ray.setFromCamera(mouse,camera);
-  const hit=ray.intersectObjects([...prodMeshes,...Object.values(zoneMeshes)],false)[0];
-  if(!hit) return;
-  const ud=hit.object.userData;
-  if(ud.type==='product'){ selected=ud.id; applySelectHighlight(); syncSel(); }
-  else if(ud.type==='zone' && selected){ if(place[selected]!==ud.id){ place[selected]=ud.id; rebuild(); sync(); $('#optsum').textContent=''; } }
+  const hit=ray.intersectObjects([...prodPick,...zonePick],false)[0];
+  if(!hit)return; const ud=hit.object.userData;
+  if(ud.type==='product'){ S.selected=ud.id; highlight(); syncSel(); renderProdBreak(); invalidate(); }
+  else if(ud.type==='zone'&&S.selected){
+    const cap=M.zoneById(zones,ud.id).cap, occ=products.filter(p=>S.place[p.id]===ud.id&&p.id!==S.selected).length;
+    if(occ>=cap){ flashZone(ud.id); return; }
+    if(S.place[S.selected]!==ud.id){ S.place[S.selected]=ud.id; syncMeshes(); refresh(); $('#optsum').textContent=''; }
+  }
 });
+function flashZone(id){ const g=zoneMeshes[id]; if(!g)return; g.traverse(m=>{if(m.isMesh&&m.material.emissive)m.material.emissive.setHex(0x5a1414);}); invalidate(); setTimeout(()=>{g.traverse(m=>{if(m.isMesh&&m.material.emissive)m.material.emissive.setHex(0x000000);});invalidate();},400); }
 
-// ── HUD sync ──────────────────────────────────────────────────
-const $=s=>document.querySelector(s);
-function sync(){
-  const up=Math.round((total(place)-BASE)/BASE*100);
-  const b=$('#scoreBig'); b.textContent=(up>0?'+':'')+up+'%'; b.className='big '+(up>0?'pos':up<0?'neg':'zero');
-  $('#scoreSub').textContent = up>0?'better aligned with retail principles than a flat shelf':up<0?'below the flat-shelf baseline':'same as a flat shelf';
-  const a=advise(place); $('#advN').textContent=a.length?`· ${a.length}`:'';
-  $('#advice').innerHTML=a.length?a.map(x=>`<div class="adv ${x.warn?'warn':''}"><div class="at">${x.t}</div><div class="ap">${x.p}</div></div>`).join(''):'<div class="empty">Well-placed. No improving move ✓</div>';
-  const code=PRODUCTS.map(p=>ZONES.findIndex(z=>z.id===place[p.id])).join(''); history.replaceState(null,'','#'+code);
+// ── URL state (versioned) ────────────────────────────────────────────────────
+function updateURL(){
+  const code=M.encodePlace(S.place,zones,products);
+  const flags=`${S.ctx.decompression?1:0}${S.ctx.circulation==='clockwise'?'c':'r'}${S.heat?1:0}`;
+  history.replaceState(null,'',`#v2.${S.store}.${S.roomW}x${S.roomD}.${S.theme}.${flags}.${code}`);
 }
-function syncSel(){ $('#sel').innerHTML='Selected: <b>'+(selected?PI[selected].name:'none')+'</b>'+(selected?' — now click a zone':''); }
-window.share=()=>navigator.clipboard?.writeText(location.href).then(()=>{const b=$('#shareBtn');const t=b.textContent;b.textContent='Copied ✓';setTimeout(()=>b.textContent=t,1400);});
+function initFromURL(){
+  const h=(location.hash||'').replace(/^#/,'');
+  if(h.startsWith('v2.')){
+    const [_,store,room,theme,flags,code]=h.split('.');
+    if(M.STORES[store]) S.store=store;
+    const rm=(room||'').match(/^(\d+)x(\d+)$/); if(rm){S.roomW=clamp(+rm[1],6,22);S.roomD=clamp(+rm[2],6,22);}
+    if(THEMES[theme]) S.theme=theme;
+    if(flags){ S.ctx.decompression=flags[0]==='1'; S.ctx.circulation=flags[1]==='c'?'clockwise':'right'; S.heat=flags[2]!=='0'; }
+    zones=M.buildZones(S.roomW,S.roomD); loadStore(S.store,false);
+    const dec=M.decodePlace(code,zones,products); if(dec) S.place=dec;
+    return true;
+  }
+  return false;
+}
 
-// ── resize + render loop ──────────────────────────────────────
-function resize(){ const w=stage.clientWidth,h=stage.clientHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
-addEventListener('resize',resize); resize();
-const v=new THREE.Vector3();
-function updateLabels(){ for(const z of ZONES){ v.set(z.x,1.6,z.z).project(camera);
-  const el=labelEls[z.id]; const nx=v.x*0.5+0.5, ny=-v.y*0.5+0.5;
-  const vis = v.z<1 && nx>-0.02 && nx<1.02 && ny>-0.02 && ny<1.02;   // hide labels projected outside the stage
-  el.style.display=vis?'block':'none';
-  el.style.left=(nx*stage.clientWidth)+'px'; el.style.top=(ny*stage.clientHeight)+'px'; } }
-function loop(){ requestAnimationFrame(loop); controls.update(); updateLabels(); renderer.render(scene,camera); }
-loop();
+// ── boot ─────────────────────────────────────────────────────────────────────
+function reflectControls(){
+  $('#roomW').value=S.roomW; $('#roomWv').textContent=S.roomW+' m';
+  $('#roomD').value=S.roomD; $('#roomDv').textContent=S.roomD+' m';
+  $('#themeSel').value=S.theme;
+  $('#tgHeat').classList.toggle('on',S.heat); $('#legend').classList.toggle('show',S.heat);
+  $('#tgDecomp').classList.toggle('on',S.ctx.decompression); $('#decompTag').style.display=S.ctx.decompression?'inline-block':'none';
+  $('#tgCirc').classList.toggle('on',S.ctx.circulation==='clockwise');
+}
+function resize(){ if(!GL)return; const w=stage.clientWidth,h=stage.clientHeight; renderer.setSize(w,h,false); camera.aspect=w/h||1; camera.updateProjectionMatrix(); invalidate(); }
+addEventListener('resize',resize);
 
-// init
-(function initState(){ const h=(location.hash||'').replace('#','');
-  if(h.length===PRODUCTS.length&&/^[0-6]+$/.test(h)){ const o={}; PRODUCTS.forEach((p,i)=>o[p.id]=(ZONES[+h[i]]||ZONES[4]).id); place=o; rebuild(); sync(); }
-  else applyPreset('balanced');
+function coldOpen(){
+  // fire the "aha" without a click: pin the furnished layout, then auto-Optimize
+  // so the visitor sees products glide, the ring climb, and the before/after delta.
+  $('#optsum').innerHTML='👋 New here? Watch the store rearrange to the <b>evidence-optimal</b> layout — press <b>Furnished</b> to reset, then move products yourself.';
+  setTimeout(()=>{ if(!GL)return; window._pin(); setTimeout(()=>{ if(GL) window._optimize(); }, 1100); }, 1000);
+}
+(function boot(){
+  zones=M.buildZones(S.roomW,S.roomD);
+  const fresh = !initFromURL();
+  if(fresh){ loadStore('cafe'); } else recomputeBounds();
+  try{ init3D(); }catch(err){ GL=false; console.warn('WebGL unavailable — scoring still live:',err&&err.message||err); showFallback(); }
+  buildStoreSeg(); buildMissionPills();
+  if(GL){ buildRoom(); buildZones(); syncMeshes(false); }
+  reflectControls(); resize(); refresh(); syncSel();
+  if(GL) loop();
+  if(fresh && GL) coldOpen();
 })();
 </script>
 </body>

@@ -14,3 +14,11 @@ package-lock.json
 test-results/
 playwright-report/
 .cache/
+
+# editor backups & local scratch (source only in commits)
+*.original.html
+*.bak
+.DS_Store
+/scratch/
+/shots/
+*.screenshot.png

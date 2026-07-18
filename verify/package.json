@@ -1,0 +1,8 @@
+{
+  "name": "storeops-merch-verify",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "verify": "node verify_merch.mjs && node geom_check.mjs"
+  }
+}
