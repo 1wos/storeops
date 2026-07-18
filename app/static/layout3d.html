@@ -224,7 +224,7 @@
         <button class="btn" onclick="window._pin()" id="pinBtn">Pin as “before”</button>
       </div>
       <div class="optsum" id="optsum"></div>
-      <div style="margin-top:12px" class="eyebrow">Room size <span style="color:var(--sub);text-transform:none;letter-spacing:0;font-weight:500">· visual (geometry scored in v2)</span></div>
+      <div style="margin-top:12px" class="eyebrow">Room size <span style="color:var(--sub);text-transform:none;letter-spacing:0;font-weight:500">· changes the shopper path, not the alignment score</span></div>
       <div class="slider-row"><label>W</label><input type="range" id="roomW" min="6" max="22" step="1" value="12"><span class="val" id="roomWv">12 m</span></div>
       <div class="slider-row"><label>D</label><input type="range" id="roomD" min="6" max="22" step="1" value="12"><span class="val" id="roomDv">12 m</span></div>
       <div class="sel" id="sel" style="margin-top:11px">Selected: <b>none</b></div>
@@ -289,6 +289,10 @@ const S = {
 const $ = s=>document.querySelector(s);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 let products=[], PI={}, zones=[];
+// a café has no aisle "endcap" — relabel that zone per store (the science of a
+// prominent secondary display still applies; only the name is made honest).
+const ZALIAS={ cafe:{ endcap:'Feature display' }, convenience:{} };
+const zname=z=>ZALIAS[S.store]?.[z.id]||z.name;
 
 function loadStore(k, keepPlace=false){
   // copy products so "MY store" economics edits are session-local (a store switch restores defaults)
@@ -422,7 +426,7 @@ function buildZones(){
     scene.add(g); zoneMeshes[z.id]=g; zoneSurfaceY[z.id]=surfaceY; zoneTopY[z.id]=topY;
     const el=document.createElement('div'); el.className='zlabel';
     const eff=M.placementMult({velocity:1,margin:0,impulse:.5,cheap:true,destination:true},z,S.ctx)||1;
-    el.innerHTML=`<div class="n">${z.name}</div><div class="w">${eff>=1?'▲':'▽'} ${eff.toFixed(2)}×</div>`;
+    el.innerHTML=`<div class="n">${zname(z)}</div><div class="w">${eff>=1?'▲':'▽'} ${eff.toFixed(2)}×</div>`;
     labelsLayer.appendChild(el); labelEls[z.id]=el;
   }
 }
@@ -645,7 +649,7 @@ function refresh(skipProdBreak){
   const robCls={robust:'r',likely:'l',sensitive:'s'};
   let html=moves.map(m=>{
     const rob=M.moveRobust(S.place,m.p.id,m.z.id,zones,products,S.ctx);
-    return `<div class="adv"><div class="at">Move <b>${m.p.name}</b> → <b>${m.z.name}</b> — ${m.reason}. <span class="gain">(+${Math.max(1,Math.round(m.gain*100/span))} pts)</span></div><div class="ap">${badge(m.principle)} ${M.PRINCIPLES[m.principle]?.label||''} <span class="rob ${robCls[rob]}">${rob}</span></div></div>`;
+    return `<div class="adv"><div class="at">Move <b>${m.p.name}</b> → <b>${zname(m.z)}</b> — ${m.reason}. <span class="gain">(+${Math.max(1,Math.round(m.gain*100/span))} pts)</span></div><div class="ap">${badge(m.principle)} ${M.PRINCIPLES[m.principle]?.label||''} <span class="rob ${robCls[rob]}">${rob}</span></div></div>`;
   }).join('');
   html+=warns.map(w=>`<div class="adv warn"><div class="at"><b>${w.p.name}</b> ${w.reason}</div><div class="ap">${badge('lowstock')} Low-stock opportunity cost</div></div>`).join('');
   if(!html) html='<div class="empty">Well-placed — no improving move remains ✓</div>';
@@ -674,7 +678,7 @@ function renderProdBreak(){
     const sid=`ec-${f}`;
     return `<div class="er"><label>${lbl}</label><input type="range" min="0" max="1" step="0.05" value="${p[f]}" oninput="window._editEcon('${f}',this.value,'${sid}')" onchange="window._editEconCommit()" aria-label="${p.name} ${lbl}"><span id="${sid}">${(+p[f]).toFixed(2)}</span></div>`;
   }).join('');
-  el.innerHTML=`<b style="color:var(--ink)">${p.name}</b> in <b style="color:var(--ink)">${z.name}</b>${chips?'<br>'+chips:''}`
+  el.innerHTML=`<b style="color:var(--ink)">${p.name}</b> in <b style="color:var(--ink)">${zname(z)}</b>${chips?'<br>'+chips:''}`
     +`<br><span style="color:var(--sub)">placement score ≈ ${Math.round(sc?.score||0)}</span>`
     +`<div class="econ"><div class="eh">Make it MY store · edit this product’s economics <span style="text-transform:none;letter-spacing:0">(session only)</span></div>${econ}</div>`;
 }
@@ -737,7 +741,7 @@ addEventListener('keydown',e=>{if(e.key==='Escape')window._closeDrawer();});
 // ── actions ──────────────────────────────────────────────────────────────────
 window._optimize=()=>{
   const before={...S.place}, r=M.optimize(zones,products,S.ctx,+1);
-  const moved=products.filter(p=>before[p.id]!==r.place[p.id]).map(p=>`${p.name}→${M.zoneById(zones,r.place[p.id]).name}`);
+  const moved=products.filter(p=>before[p.id]!==r.place[p.id]).map(p=>`${p.name}→${zname(M.zoneById(zones,r.place[p.id]))}`);
   S.place=r.place; S.selected=null; syncMeshes(); refresh(); syncSel();
   $('#optsum').innerHTML=moved.length?`✨ Optimized to <b>${Math.round(curAlign())}/100</b> · moved ${moved.slice(0,3).join(', ')}${moved.length>3?` +${moved.length-3} more`:''}`:'✨ Already at the best layout the model can find';
 };
