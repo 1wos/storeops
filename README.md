@@ -4,8 +4,6 @@ The owner is off duty; the agent runs the store, and proves every action in Mong
 
 ![license](https://img.shields.io/badge/license-MIT-3FB950) ![track](https://img.shields.io/badge/track-MongoDB-00ED64) ![model](https://img.shields.io/badge/Gemini%203-Vertex%20AI-4285F4) ![partner](https://img.shields.io/badge/MongoDB%20MCP-live-E0A23D) ![checks](https://img.shields.io/badge/golden%20checks-10%2F10-3FB950)
 
-**[Live demo](https://off-duty-180895049757.us-central1.run.app)** — Owner Console `/` · Customer Counter `/counter`
-
 ![Owner Ops Console](docs/img/owner-console.png)
 
 <details>
