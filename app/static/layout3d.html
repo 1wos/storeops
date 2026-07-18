@@ -98,6 +98,12 @@
   /* per-product mini breakdown */
   .pb{font-size:11.5px;color:var(--mut);line-height:1.5}
   .pb .chip{display:inline-block;background:var(--s1);border:1px solid var(--line);border-radius:6px;padding:1px 6px;margin:2px 3px 0 0;font-size:10.5px}
+  .econ{margin-top:10px;border-top:1px solid var(--line);padding-top:9px}
+  .econ .eh{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px}
+  .econ .er{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--mut);margin-top:5px}
+  .econ .er label{width:86px;flex:none}
+  .econ .er input{flex:1;accent-color:var(--green);height:18px;min-height:0}
+  .econ .er span{width:32px;text-align:right;color:var(--ink);font-variant-numeric:tabular-nums}
   /* reliability badges */
   .rb{display:inline-flex;align-items:center;gap:4px;font-size:9.5px;font-weight:700;border-radius:6px;padding:2px 6px;white-space:nowrap;letter-spacing:.02em}
   .rb.strong{color:#7dffb0;background:rgba(0,237,100,.12);border:1px solid rgba(0,237,100,.3)}
@@ -278,7 +284,8 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 let products=[], PI={}, zones=[];
 
 function loadStore(k, keepPlace=false){
-  S.store=k; products=M.STORES[k].products; PI=M.productIndex(products);
+  // copy products so "MY store" economics edits are session-local (a store switch restores defaults)
+  S.store=k; products=M.STORES[k].products.map(p=>({...p, comp:[...(p.comp||[])]})); PI=M.productIndex(products);
   if(!keepPlace) S.place={...M.STORES[k].layout};
   S.selected=null; S.pinned=null;
   S.mission = (M.MISSIONS[k]&&M.MISSIONS[k][0].id)||null;
@@ -614,7 +621,7 @@ function verdictText(a){
   if(a>=22) return 'Weak. Your best space is working against you.';
   return 'Poorly aligned — prime zones are wasted.';
 }
-function refresh(){
+function refresh(skipProdBreak){
   const a=curAlign(), r=Math.round(a);
   const span=Math.max(1e-6, S.bounds ? S.bounds.best-S.bounds.worst : 1); // raw pts → alignment pts
   $('#ring').style.setProperty('--v',a);
@@ -628,8 +635,8 @@ function refresh(){
   html+=warns.map(w=>`<div class="adv warn"><div class="at"><b>${w.p.name}</b> ${w.reason}</div><div class="ap">${badge('lowstock')} Low-stock opportunity cost</div></div>`).join('');
   if(!html) html='<div class="empty">Well-placed — no improving move remains ✓</div>';
   $('#advice').innerHTML=html;
-  // selected product breakdown
-  renderProdBreak();
+  // selected product breakdown (skip while dragging an economics slider)
+  if(!skipProdBreak) renderProdBreak();
   // compare bar
   if(S.pinned){ const d=Math.round(a - S.pinned.align);
     $('#compareBar').classList.add('show');
@@ -648,8 +655,17 @@ function renderProdBreak(){
   const mults=M.placementMults(p,z,S.ctx);
   const sc=M.storeScore(S.place,zones,products,S.ctx).perProduct[p.id];
   const chips=mults.map(mm=>`<span class="chip">${M.PRINCIPLES[mm.pid]?.label||mm.pid} ×${mm.mult.toFixed(2)}</span>`).join('');
-  el.innerHTML=`<b style="color:var(--ink)">${p.name}</b> in <b style="color:var(--ink)">${z.name}</b>${chips?'<br>'+chips:''}<br><span style="color:var(--sub)">placement score ≈ ${Math.round(sc?.score||0)}</span>`;
+  const econ=[['velocity','Sales velocity'],['margin','Margin'],['impulse','Impulse appeal']].map(([f,lbl])=>{
+    const sid=`ec-${f}`;
+    return `<div class="er"><label>${lbl}</label><input type="range" min="0" max="1" step="0.05" value="${p[f]}" oninput="window._editEcon('${f}',this.value,'${sid}')" onchange="window._editEconCommit()" aria-label="${p.name} ${lbl}"><span id="${sid}">${(+p[f]).toFixed(2)}</span></div>`;
+  }).join('');
+  el.innerHTML=`<b style="color:var(--ink)">${p.name}</b> in <b style="color:var(--ink)">${z.name}</b>${chips?'<br>'+chips:''}`
+    +`<br><span style="color:var(--sub)">placement score ≈ ${Math.round(sc?.score||0)}</span>`
+    +`<div class="econ"><div class="eh">Make it MY store · edit this product’s economics <span style="text-transform:none;letter-spacing:0">(session only)</span></div>${econ}</div>`;
 }
+window._editEcon=(field,val,spanId)=>{ if(!S.selected)return; PI[S.selected][field]=+val; const s=document.getElementById(spanId); if(s)s.textContent=(+val).toFixed(2); refresh(true); };
+window._editEconCommit=()=>{ recomputeBounds(); refresh(true); };
+window._pick=id=>{ if(!PI[id])return; S.selected=id; highlight(); syncSel(); renderProdBreak(); invalidate(); };
 
 // ── evidence drawer ──────────────────────────────────────────────────────────
 const RELNAME={strong:'Strong · peer-reviewed',peer:'Peer-reviewed',meta:'Meta-analysis',heuristic:'Heuristic / lore',input:'Assumption'};
